@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+backend/dist/
+
+# Environment variables (contain secrets!)
+.env
+backend/.env
+frontend/.env
+
+# Database
+backend/prisma/*.db
+backend/prisma/*.db-journal
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*

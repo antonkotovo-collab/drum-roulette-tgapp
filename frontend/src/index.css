@@ -1,0 +1,190 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #0f0a1e;
+  color: #f0e8ff;
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: radial-gradient(ellipse at top, #1e1040 0%, #0f0a1e 60%);
+  overflow-x: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Мягкий скроллбар */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1030;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #7c3aed;
+  border-radius: 2px;
+}
+
+/* Утилиты */
+.text-gradient-pastel {
+  background: linear-gradient(135deg, #d4a5f5 0%, #f5a5d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.glow-purple {
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.4), 0 0 48px rgba(168, 85, 247, 0.15);
+}
+
+.glow-purple-text {
+  text-shadow: 0 0 20px rgba(212, 165, 245, 0.6);
+}
+
+/* Мобильная адаптация */
+@media (max-width: 430px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 375px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* ─── GPU-friendly анимации (compositor thread) ─────────────────── */
+
+@keyframes pulse-opacity {
+  0%, 100% { opacity: var(--pulse-from, 0.05); }
+  50% { opacity: var(--pulse-to, 0.45); }
+}
+
+@keyframes pulse-opacity-text {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(var(--float-dist, -10px)); }
+}
+
+@keyframes float-y-scale {
+  0%, 100% { transform: translateY(0) scale(var(--float-scale-from, 0.9)); opacity: 0.5; }
+  50% { transform: translateY(var(--float-dist, -10px)) scale(var(--float-scale-to, 1.2)); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes gentle-scale {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(var(--scale-to, 1.08)); }
+}
+
+@keyframes gentle-rotate {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(var(--rotate-to, 10deg)); }
+  75% { transform: rotate(var(--rotate-from, -10deg)); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes star-near {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.3); }
+}
+
+@keyframes float-particle {
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
+  50% { transform: translateY(-6px) rotate(10deg); opacity: 1; }
+}
+
+@keyframes float-particle-reverse {
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
+  50% { transform: translateY(-6px) rotate(-10deg); opacity: 1; }
+}
+
+@keyframes led-chase {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* ─── Утилитарные классы ────────────────────────────────────────── */
+
+.animate-pulse-opacity {
+  animation: pulse-opacity var(--anim-dur, 2.5s) ease-in-out infinite;
+  animation-delay: var(--anim-delay, 0s);
+}
+
+.animate-float {
+  animation: float-y var(--anim-dur, 2s) ease-in-out infinite;
+  animation-delay: var(--anim-delay, 0s);
+  will-change: transform;
+}
+
+.animate-shimmer {
+  animation: shimmer var(--anim-dur, 3s) ease-in-out infinite;
+  background-size: 200% 100%;
+  will-change: background-position;
+}
+
+.animate-gentle-scale {
+  animation: gentle-scale var(--anim-dur, 2.5s) ease-in-out infinite;
+  animation-delay: var(--anim-delay, 0s);
+  will-change: transform;
+}
+
+.animate-gentle-rotate {
+  animation: gentle-rotate var(--anim-dur, 3s) ease-in-out infinite;
+  animation-delay: var(--anim-delay, 0s);
+  will-change: transform;
+}
+
+.animate-spin-slow {
+  animation: spin var(--anim-dur, 0.7s) linear infinite;
+  will-change: transform;
+}
+
+/* ─── Отключение анимаций для сохранения батареи ────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

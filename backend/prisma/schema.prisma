@@ -1,0 +1,38 @@
+// Prisma schema для барабанной рулетки
+// Две модели: User (пользователи Telegram) и SpinResult (история спинов)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int          @id @default(autoincrement())
+  telegramId     String       @unique @map("telegram_id")
+  username       String?
+  firstName      String?      @map("first_name")
+  freeSpinsCount    Int          @default(2) @map("free_spins_count")
+  spinsUsed         Int          @default(0) @map("spins_used")
+  lastDailyBonusAt  DateTime?    @map("last_daily_bonus_at")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  spinResults    SpinResult[]
+
+  @@map("users")
+}
+
+model SpinResult {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  spinNumber Int      @map("spin_number")
+  result     String   // "nothing" или название приза
+  prizeId    String?  @map("prize_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@map("spin_results")
+}
