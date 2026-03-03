@@ -14,6 +14,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// За Nginx — доверяем первому прокси, чтобы req.ip возвращал реальный IP клиента
+// Без этого ВСЕ пользователи будут иметь один IP (127.0.0.1) и делить один rate-limit
+app.set('trust proxy', 1);
+
 // ─── Middleware ────────────────────────────────────────────────────────────────
 
 // CORS: разрешаем запросы с фронтенда
@@ -45,7 +49,7 @@ const generalLimiter = rateLimit({
     message: { error: 'Слишком много запросов, попробуйте позже' },
 });
 
-// Строгий лимит для спинов: 20 в минуту на IP (защита от скрипт-атак)
+// Строгий лимит для спинов: 20 в минуту на пользователя (защита от скрипт-атак)
 const spinLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 20,
@@ -53,7 +57,14 @@ const spinLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Слишком много спинов, подождите минуту' },
     keyGenerator: (req) => {
-        // Учитываем Telegram User ID из тела запроса (если есть) для точного ограничения
+        // Ключ по Telegram User ID — каждый пользователь имеет свой лимит
+        try {
+            const initData = req.body?.initData;
+            if (typeof initData === 'string') {
+                const match = initData.match(/"id"\s*:\s*(\d+)/);
+                if (match) return `tg:${match[1]}`;
+            }
+        } catch { /* fallback to IP */ }
         return req.ip || 'unknown';
     },
 });
