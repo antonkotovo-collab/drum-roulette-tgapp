@@ -20,8 +20,6 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ onNavigate }) => {
     const [shareAnim, setShareAnim] = useState(false);
     const [channelClaiming, setChannelClaiming] = useState(false);
     const [channelClaimAnim, setChannelClaimAnim] = useState(false);
-    const [showChannelVerify, setShowChannelVerify] = useState(false);
-    const [notSubscribed, setNotSubscribed] = useState(false);
 
     const fetchData = useCallback(async () => {
         if (!isReady) return;
@@ -75,29 +73,19 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ onNavigate }) => {
         });
     };
 
-    const handleChannelOpen = () => {
-        // Шаг 1: открываем канал и показываем кнопку «Проверить»
+    const handleChannelBonus = async () => {
+        // Открываем канал в любом случае
         const tg = (window as any).Telegram?.WebApp;
         if (tg?.openTelegramLink) {
             tg.openTelegramLink(CHANNEL_URL);
         } else {
             window.open(CHANNEL_URL, '_blank');
         }
-        setShowChannelVerify(true);
-        setNotSubscribed(false);
-    };
 
-    const handleChannelVerify = async () => {
-        // Шаг 2: проверяем подписку через API
         if (data?.channelBonusClaimed || channelClaiming) return;
         try {
             setChannelClaiming(true);
-            setNotSubscribed(false);
             const result = await claimChannelBonus(initData);
-            if (result.notSubscribed) {
-                setNotSubscribed(true);
-                return;
-            }
             if (!result.alreadyClaimed) {
                 setChannelClaimAnim(true);
                 setTimeout(() => setChannelClaimAnim(false), 1500);
@@ -107,7 +95,7 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ onNavigate }) => {
                 : prev
             );
         } catch (_) {
-            // сетевая ошибка — молча
+            // silent
         } finally {
             setChannelClaiming(false);
         }
@@ -210,10 +198,10 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ onNavigate }) => {
                             }} />
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: 28, fontWeight: 900, color: '#86efac' }}>
-                                    {data?.spinsLeft ?? 0}
+                                    {SPINS_PER_REFERRALS - progress}
                                 </div>
                                 <div style={{ fontSize: 11, color: 'rgba(200,185,230,0.55)', marginTop: 2 }}>
-                                    осталось
+                                    до спина
                                 </div>
                             </div>
                         </div>
@@ -227,7 +215,11 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ onNavigate }) => {
                                 color: 'rgba(200,185,230,0.6)',
                                 marginBottom: 6,
                             }}>
-                                <span>Прогресс до следующего прокрута</span>
+                                <span style={{ color: 'rgba(200,185,230,0.6)', fontSize: 11 }}>
+                                    {progress === 0 && (data?.spinsEarned ?? 0) > 0
+                                        ? '🎉 Цикл завершён! Начинаем новый'
+                                        : 'Друзей приглашено в текущем цикле'}
+                                </span>
                                 <span style={{ fontWeight: 700, color: '#c084fc' }}>{progress}/{SPINS_PER_REFERRALS}</span>
                             </div>
                             <div style={{
@@ -345,70 +337,39 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ onNavigate }) => {
                     </p>
                     <p style={{
                         margin: '3px 0 0', fontSize: 11, fontWeight: 500,
-                        color: notSubscribed ? '#f87171' : 'rgba(134,239,172,0.5)',
+                        color: 'rgba(134,239,172,0.5)',
                     }}>
                         {data?.channelBonusClaimed
                             ? '+1 прокрут уже зачислен 🎰'
-                            : notSubscribed
-                                ? 'Сначала подпишись на канал ↗'
-                                : '+1 бесплатный прокрут за подписку'}
+                            : '+1 бесплатный прокрут за подписку'}
                     </p>
                 </div>
 
-                {/* Кнопки (двухшаговый флоу) */}
+                {/* Кнопка */}
                 {!data?.channelBonusClaimed && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                        {/* Шаг 1: открыть канал */}
-                        <motion.button
-                            whileTap={{ scale: 0.94 }}
-                            onClick={handleChannelOpen}
-                            style={{
-                                padding: '6px 12px',
-                                borderRadius: 10,
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontWeight: 800,
-                                fontSize: 11,
-                                color: '#fff',
-                                background: 'linear-gradient(135deg, #16a34a, #22c55e)',
-                                boxShadow: '0 2px 10px rgba(34,197,94,0.4)',
-                                WebkitTapHighlightColor: 'transparent',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            📢 Подписаться
-                        </motion.button>
-
-                        {/* Шаг 2: проверить подписку (появляется после клика) */}
-                        <AnimatePresence>
-                            {showChannelVerify && (
-                                <motion.button
-                                    key="verify-btn"
-                                    initial={{ opacity: 0, y: -4 }}
-                                    animate={channelClaimAnim ? { scale: [1, 1.15, 1] } : { opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0 }}
-                                    whileTap={{ scale: 0.94 }}
-                                    onClick={handleChannelVerify}
-                                    disabled={channelClaiming}
-                                    style={{
-                                        padding: '6px 12px',
-                                        borderRadius: 10,
-                                        border: '1.5px solid rgba(34,197,94,0.4)',
-                                        cursor: channelClaiming ? 'default' : 'pointer',
-                                        fontWeight: 700,
-                                        fontSize: 11,
-                                        color: '#86efac',
-                                        background: 'rgba(34,197,94,0.08)',
-                                        WebkitTapHighlightColor: 'transparent',
-                                        opacity: channelClaiming ? 0.6 : 1,
-                                        whiteSpace: 'nowrap',
-                                    }}
-                                >
-                                    {channelClaiming ? '⏳ Проверка...' : '✅ Проверить'}
-                                </motion.button>
-                            )}
-                        </AnimatePresence>
-                    </div>
+                    <motion.button
+                        whileTap={{ scale: 0.94 }}
+                        animate={channelClaimAnim ? { scale: [1, 1.15, 1] } : {}}
+                        onClick={handleChannelBonus}
+                        disabled={channelClaiming}
+                        style={{
+                            padding: '7px 14px',
+                            borderRadius: 12,
+                            border: 'none',
+                            cursor: channelClaiming ? 'default' : 'pointer',
+                            fontWeight: 800,
+                            fontSize: 12,
+                            color: '#fff',
+                            background: 'linear-gradient(135deg, #16a34a, #22c55e)',
+                            boxShadow: '0 2px 12px rgba(34,197,94,0.4)',
+                            flexShrink: 0,
+                            WebkitTapHighlightColor: 'transparent',
+                            opacity: channelClaiming ? 0.7 : 1,
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {channelClaiming ? '...' : '📢 Подписаться'}
+                    </motion.button>
                 )}
             </motion.div>
 

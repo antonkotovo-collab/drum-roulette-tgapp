@@ -18,11 +18,20 @@ async function main() {
     const deleted = await prisma.spinResult.deleteMany({ where: { userId: user.id } });
     console.log(`Удалено спинов: ${deleted.count}`);
 
+    // Убираем реферальные связи: у пользователей, которых пригласил тест-юзер, чистим referredByCode
+    if (user.referralCode) {
+        const unlinked = await prisma.user.updateMany({
+            where: { referredByCode: user.referralCode },
+            data: { referredByCode: null },
+        });
+        console.log(`Очищено реферальных связей: ${unlinked.count}`);
+    }
+
     // Сбрасываем поля пользователя
     await prisma.user.update({
         where: { telegramId },
         data: {
-            freeSpinsCount: 2,          // начальные 2 прокрута
+            freeSpinsCount: 2,
             spinsUsed: 0,
             referralSpinsAwarded: 0,
             channelBonusClaimed: false,
@@ -31,7 +40,7 @@ async function main() {
         },
     });
 
-    console.log('✅ Пользователь сброшен: 2 прокрута, история очищена, бонусы обнулены.');
+    console.log('✅ Пользователь сброшен: 2 прокрута, история очищена, рефералы обнулены.');
 }
 
 main()
