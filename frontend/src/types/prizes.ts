@@ -77,3 +77,12 @@ export interface UserPrizesResponse {
     prizes: UserPrize[];
 }
 
+// Ответ от /api/user/referral
+export interface ReferralResponse {
+    referralCode: string | null;
+    referralLink: string;
+    referralCount: number;
+    spinsEarned: number;
+    spinsLeft: number;
+    channelBonusClaimed: boolean;
+}

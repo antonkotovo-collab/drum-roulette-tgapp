@@ -9,7 +9,19 @@ import { logger } from '../lib/logger';
  * При каждом входе обновляются имя/юзернейм.
  * Если прошло 24ч с последнего дейли бонуса — начисляет +1 спин.
  */
-export async function findOrCreateUser(telegramUser: TelegramUser): Promise<User> {
+/** Генерирует уникальный 6-значный реферальный код из telegramId */
+function generateReferralCode(telegramId: string): string {
+    const num = BigInt(telegramId) ^ BigInt(Date.now());
+    return num.toString(36).slice(-6).toUpperCase();
+}
+
+export async function findOrCreateUser(
+    telegramUser: TelegramUser,
+    referredByCode?: string,
+): Promise<User> {
+    // Генерируем код заранее, чтобы использовать при create
+    const newCode = generateReferralCode(String(telegramUser.id));
+
     const user = await prisma.user.upsert({
         where: { telegramId: String(telegramUser.id) },
         update: {
@@ -23,8 +35,19 @@ export async function findOrCreateUser(telegramUser: TelegramUser): Promise<User
             freeSpinsCount: 3,
             spinsUsed: 0,
             lastDailyBonusAt: new Date(),
+            referralCode: newCode,
+            referredByCode: referredByCode || null,
         },
     });
+
+    // Если код ещё не назначен (старые пользователи) — назначить
+    if (!user.referralCode) {
+        const updated = await prisma.user.update({
+            where: { telegramId: String(telegramUser.id) },
+            data: { referralCode: newCode },
+        });
+        return updated;
+    }
 
     // Daily bonus: +1 прокрут каждые 24 часа
     const now = new Date();
@@ -99,4 +122,38 @@ export async function addExtraSpins(telegramId: string, count: number): Promise<
         where: { telegramId },
         data: { freeSpinsCount: { increment: count } },
     });
+}
+
+/**
+ * Идемпотентно начисляет прокруты за рефералов:
+ * каждые 3 новых реферала = +1 прокрут.
+ * Возвращает { referralCount, spinsEarned, newSpinsAwarded }
+ */
+export async function checkAndAwardReferralSpins(
+    telegramId: string,
+): Promise<{ referralCount: number; spinsEarned: number; newSpinsAwarded: number }> {
+    const user = await prisma.user.findUnique({ where: { telegramId } });
+    if (!user || !user.referralCode) {
+        return { referralCount: 0, spinsEarned: 0, newSpinsAwarded: 0 };
+    }
+
+    const referralCount = await prisma.user.count({
+        where: { referredByCode: user.referralCode },
+    });
+
+    const totalSpinsEarned = Math.floor(referralCount / 3);
+    const newSpinsAwarded = totalSpinsEarned - user.referralSpinsAwarded;
+
+    if (newSpinsAwarded > 0) {
+        await prisma.user.update({
+            where: { telegramId },
+            data: {
+                freeSpinsCount: { increment: newSpinsAwarded },
+                referralSpinsAwarded: { increment: newSpinsAwarded },
+            },
+        });
+        logger.info({ telegramId, newSpinsAwarded }, '🎁 Referral spins awarded');
+    }
+
+    return { referralCount, spinsEarned: totalSpinsEarned, newSpinsAwarded };
 }

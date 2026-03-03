@@ -66,8 +66,8 @@ router.post('/', telegramAuth, async (req: AuthenticatedRequest, res: Response) 
         const user = spinData.user;
         const spinNumber = spinData.spinNumber;
 
-        // Получить результат по пайплайну
-        const spinResult = getSpinResult(spinNumber);
+        // Получить результат по пайплайну (userId определяет сценарий)
+        const spinResult = getSpinResult(user.id, spinNumber);
 
         // Сохранить в БД
         await saveSpinResult(user.id, spinNumber, spinResult.result, spinResult.prizeId);

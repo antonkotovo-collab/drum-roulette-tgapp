@@ -17,9 +17,13 @@ model User {
   firstName      String?      @map("first_name")
   freeSpinsCount    Int          @default(2) @map("free_spins_count")
   spinsUsed         Int          @default(0) @map("spins_used")
-  lastDailyBonusAt  DateTime?    @map("last_daily_bonus_at")
-  createdAt         DateTime     @default(now()) @map("created_at")
-  updatedAt         DateTime     @updatedAt @map("updated_at")
+  lastDailyBonusAt      DateTime?    @map("last_daily_bonus_at")
+  referralCode          String?      @unique @map("referral_code")
+  referredByCode        String?      @map("referred_by_code")
+  referralSpinsAwarded  Int          @default(0) @map("referral_spins_awarded")
+  channelBonusClaimed   Boolean      @default(false) @map("channel_bonus_claimed")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
   spinResults    SpinResult[]
 
   @@map("users")

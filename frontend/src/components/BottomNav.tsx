@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export type PageType = 'main' | 'prizes';
+export type PageType = 'main' | 'prizes' | 'referral';
 
 interface BottomNavProps {
     activePage: PageType;
@@ -12,8 +12,10 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, onNavigate }) => {
     const tabs = [
         { id: 'main' as PageType, label: 'Главная', icon: '🎡', action: () => onNavigate('main') },
         { id: 'prizes' as PageType, label: 'Мои призы', icon: '🏆', action: () => onNavigate('prizes') },
+        { id: 'referral' as PageType, label: 'Друзья', icon: '👥', action: () => onNavigate('referral') },
         { id: 'support' as PageType | 'support', label: 'Поддержка', icon: '💬', action: () => window.open('https://t.me/servise_support', '_blank') },
     ];
+
 
     return (
         <motion.nav

@@ -1,7 +1,8 @@
 import { Router, Response } from 'express';
 import { telegramAuth, AuthenticatedRequest } from '../middleware/telegramAuth';
-import { findOrCreateUser } from '../services/userService';
+import { findOrCreateUser, checkAndAwardReferralSpins } from '../services/userService';
 import prisma from '../lib/prisma';
+
 
 const router = Router();
 
@@ -141,6 +142,173 @@ router.get('/prizes', telegramAuth, async (req: AuthenticatedRequest, res: Respo
 
         res.json({ prizes });
     } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * GET /api/user/referral
+ * Возвращает реферальный код и статистику.
+ * Идемпотентно начисляет прокруты за рефералов.
+ */
+router.get('/referral', telegramAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const telegramId = String(req.telegramUser!.id);
+        const stats = await checkAndAwardReferralSpins(telegramId);
+
+        const user = await prisma.user.findUnique({ where: { telegramId } });
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        const botUsername = process.env.BOT_USERNAME || 'your_bot';
+        const referralLink = `https://t.me/${botUsername}?start=ref_${user.referralCode}`;
+
+        res.json({
+            referralCode: user.referralCode,
+            referralLink,
+            referralCount: stats.referralCount,
+            spinsEarned: stats.spinsEarned,
+            spinsLeft: user.freeSpinsCount,
+            channelBonusClaimed: user.channelBonusClaimed,
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /api/user/referral/join
+ * Привязывает нового пользователя к рефереру (однократно).
+ * Тело: { referredByCode: string }
+ */
+router.post('/referral/join', telegramAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const telegramId = String(req.telegramUser!.id);
+        const { referredByCode } = req.body as { referredByCode?: string };
+
+        if (!referredByCode) {
+            res.status(400).json({ error: 'referredByCode is required' });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({ where: { telegramId } });
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        // Уже привязан
+        if (user.referredByCode) {
+            res.json({ ok: true, alreadyJoined: true });
+            return;
+        }
+
+        // Нельзя использовать свой же код
+        if (user.referralCode === referredByCode) {
+            res.status(400).json({ error: 'Cannot use your own referral code' });
+            return;
+        }
+
+        // Проверяем, что такой код существует
+        const referrer = await prisma.user.findFirst({ where: { referralCode: referredByCode } });
+        if (!referrer) {
+            res.status(404).json({ error: 'Referral code not found' });
+            return;
+        }
+
+        await prisma.user.update({
+            where: { telegramId },
+            data: { referredByCode },
+        });
+
+        res.json({ ok: true, alreadyJoined: false });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /api/user/channel-bonus
+ * Проверяет подписку на канал через getChatMember и начисляет 1 прокрут.
+ * Бот должен быть администратором канала.
+ * Env: BOT_TOKEN, CHANNEL_CHAT_ID (числовой ID, например -1001234567890)
+ */
+router.post('/channel-bonus', telegramAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const telegramId = String(req.telegramUser!.id);
+        const user = await prisma.user.findUnique({ where: { telegramId } });
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        // Уже получали бонус
+        if (user.channelBonusClaimed) {
+            res.json({ ok: true, alreadyClaimed: true, spinsLeft: user.freeSpinsCount });
+            return;
+        }
+
+        const botToken = process.env.BOT_TOKEN;
+        const channelChatId = process.env.CHANNEL_CHAT_ID;
+
+        if (!botToken || !channelChatId) {
+            // Если переменные не настроены — пропускаем проверку (dev-режим)
+            const devMode = process.env.NODE_ENV !== 'production';
+            if (!devMode) {
+                res.status(500).json({ error: 'Channel check not configured' });
+                return;
+            }
+            // В dev — начисляем без проверки
+            const updated = await prisma.user.update({
+                where: { telegramId },
+                data: { channelBonusClaimed: true, freeSpinsCount: { increment: 1 } },
+            });
+            res.json({ ok: true, alreadyClaimed: false, spinsLeft: updated.freeSpinsCount });
+            return;
+        }
+
+        // Проверяем подписку через Telegram Bot API
+        const tgRes = await fetch(
+            `https://api.telegram.org/bot${botToken}/getChatMember?chat_id=${encodeURIComponent(channelChatId)}&user_id=${telegramId}`,
+        );
+        const tgData = await tgRes.json() as {
+            ok: boolean;
+            result?: { status: string };
+            description?: string;
+        };
+
+        if (!tgData.ok) {
+            // Telegram вернул ошибку (бот не администратор или канал не найден)
+            console.error('[channel-bonus] Telegram error:', tgData.description);
+            res.status(500).json({ error: 'Не удалось проверить подписку', detail: tgData.description });
+            return;
+        }
+
+        const memberStatus = tgData.result?.status;
+        const isSubscribed = ['creator', 'administrator', 'member'].includes(memberStatus || '');
+
+        if (!isSubscribed) {
+            // Пользователь не подписан
+            res.status(403).json({
+                ok: false,
+                notSubscribed: true,
+                status: memberStatus,
+                error: 'Сначала подпишись на канал',
+            });
+            return;
+        }
+
+        // Подписан — начисляем прокрут
+        const updated = await prisma.user.update({
+            where: { telegramId },
+            data: { channelBonusClaimed: true, freeSpinsCount: { increment: 1 } },
+        });
+
+        res.json({ ok: true, alreadyClaimed: false, spinsLeft: updated.freeSpinsCount });
+    } catch (error) {
+        console.error('[channel-bonus]', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

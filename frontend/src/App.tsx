@@ -14,22 +14,38 @@ import PrizeShowcase from './components/PrizeShowcase';
 import DailyBonusTimer from './components/DailyBonusTimer';
 import BottomNav from './components/BottomNav';
 import MyPrizesPage from './components/MyPrizesPage';
+import ReferralPage from './components/ReferralPage';
 import type { PageType } from './components/BottomNav';
 import { useSpinLogic } from './hooks/useSpinLogic';
 import { useUserData } from './hooks/useUserData';
 import { useGameStore } from './store/gameStore';
+import { claimReferralCode } from './services/api';
+import { useTelegram } from './hooks/useTelegram';
 
 
 
 function App() {
     useUserData(); // загрузка пользователя + daily bonus при каждом входе
 
+    const { initData, isReady } = useTelegram();
     const { spin, isSpinning, spinsLeft } = useSpinLogic();
     const { isLoading, error, firstName, lastResult } = useGameStore();
     const [showNoSpins, setShowNoSpins] = React.useState(false);
     const [activePage, setActivePage] = React.useState<PageType>('main');
     const prizeShowcaseRef = React.useRef<HTMLDivElement>(null);
     const hasScrolled = React.useRef(false);
+    const referralClaimed = React.useRef(false);
+
+    // Обработка реферального start_param при первом открытии
+    React.useEffect(() => {
+        if (!isReady || referralClaimed.current) return;
+        const tg = (window as any).Telegram?.WebApp;
+        const startParam: string | undefined = tg?.initDataUnsafe?.start_param;
+        if (startParam?.startsWith('ref_')) {
+            referralClaimed.current = true;
+            claimReferralCode(initData, startParam.slice(4)).catch(() => { });
+        }
+    }, [isReady, initData]);
 
     // Авто-скролл к призам при первом заходе
     React.useEffect(() => {
@@ -128,6 +144,8 @@ function App() {
                         {/* ── Конфетти ─────────────────────────────────────────── */}
                         <Confetti active={!isSpinning && !showNoSpins && !!lastResult && lastResult.isWin} />
                     </motion.div>
+                ) : activePage === 'referral' ? (
+                    <ReferralPage key="referral" onNavigate={setActivePage} />
                 ) : (
                     <MyPrizesPage key="prizes" onNavigate={setActivePage} />
                 )}
