@@ -12,8 +12,8 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, onNavigate }) => {
     const tabs = [
         { id: 'main' as PageType, label: 'Главная', icon: '🎡', action: () => onNavigate('main') },
         { id: 'prizes' as PageType, label: 'Мои призы', icon: '🏆', action: () => onNavigate('prizes') },
-        { id: 'referral' as PageType, label: 'Друзья', icon: '👥', action: () => onNavigate('referral') },
-        { id: 'support' as PageType | 'support', label: 'Поддержка', icon: '💬', action: () => window.open('https://t.me/servise_support', '_blank') },
+        { id: 'referral' as PageType, label: 'Задания', icon: '👥', action: () => onNavigate('referral') },
+        { id: 'support' as PageType | 'support', label: 'Поддержка', icon: '💬', action: () => window.open('https://t.me/supersupportforyou', '_blank') },
     ];
 
 
@@ -51,8 +51,8 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, onNavigate }) => {
                     position: 'absolute',
                     inset: 0,
                     background: `
-                        linear-gradient(180deg, 
-                            rgba(255,255,255,0.08) 0%, 
+                        linear-gradient(180deg,
+                            rgba(255,255,255,0.08) 0%,
                             rgba(255,255,255,0.02) 30%,
                             rgba(15,10,35,0.5) 60%,
                             rgba(15,10,35,0.7) 100%
@@ -67,13 +67,13 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, onNavigate }) => {
                     left: 0,
                     right: 0,
                     height: '1.5px',
-                    background: `linear-gradient(90deg, 
-                        transparent 0%, 
+                    background: `linear-gradient(90deg,
+                        transparent 0%,
                         rgba(120,180,255,0.5) 15%,
-                        rgba(168,85,247,0.6) 30%, 
+                        rgba(168,85,247,0.6) 30%,
                         rgba(236,72,153,0.5) 45%,
                         rgba(251,146,60,0.4) 55%,
-                        rgba(168,85,247,0.6) 70%, 
+                        rgba(168,85,247,0.6) 70%,
                         rgba(120,180,255,0.5) 85%,
                         transparent 100%
                     )`,
@@ -152,8 +152,8 @@ const BottomNav: React.FC<BottomNavProps> = ({ activePage, onNavigate }) => {
                                                 inset: 0,
                                                 borderRadius: '16px',
                                                 background: `
-                                                    linear-gradient(135deg, 
-                                                        rgba(255,255,255,0.12) 0%, 
+                                                    linear-gradient(135deg,
+                                                        rgba(255,255,255,0.12) 0%,
                                                         rgba(168,85,247,0.08) 40%,
                                                         rgba(120,180,255,0.06) 70%,
                                                         rgba(255,255,255,0.04) 100%

@@ -25,7 +25,8 @@ export function validateTelegramInitData(initData: string, botToken: string): bo
         const hash = params.get('hash');
         if (!hash) return false;
 
-        // Убираем hash из параметров для проверки
+        // Убираем ТОЛЬКО hash из параметров
+        // ВАЖНО: signature остаётся в data-check-string — это часть HMAC расчёта!
         params.delete('hash');
 
         // Сортируем параметры по ключу и формируем строку для проверки

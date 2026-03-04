@@ -162,7 +162,7 @@ router.get('/referral', telegramAuth, async (req: AuthenticatedRequest, res: Res
             return;
         }
 
-        const botUsername = process.env.BOT_USERNAME || 'your_bot';
+        const botUsername = process.env.BOT_USERNAME || 'LotereyaZolotoeYablokobot';
         const referralLink = `https://t.me/${botUsername}?start=ref_${user.referralCode}`;
 
         res.json({

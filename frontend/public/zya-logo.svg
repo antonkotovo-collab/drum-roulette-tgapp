@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!--
+    Золотое Яблоко logo:
+    • 5 isometric slabs (top face + front face each)
+    • Vertical figure-8 on top
+    Left edge x=20, Right edge x=72  (right side is 12px higher than left)
+    Layer y step = 10,  top-face h = 5,  front-face h = 3,  gap = 2
+  -->
+  <g fill="#111111">
+    <!-- Layer 1 (top):  left-top y=33, right-top y=21 -->
+    <polygon points="20,33 72,21 72,26 20,38"/>   <!-- top face   -->
+    <polygon points="20,38 72,26 72,29 20,41"/>   <!-- front face -->
+
+    <!-- Layer 2: -->
+    <polygon points="20,43 72,31 72,36 20,48"/>
+    <polygon points="20,48 72,36 72,39 20,51"/>
+
+    <!-- Layer 3: -->
+    <polygon points="20,53 72,41 72,46 20,58"/>
+    <polygon points="20,58 72,46 72,49 20,61"/>
+
+    <!-- Layer 4: -->
+    <polygon points="20,63 72,51 72,56 20,68"/>
+    <polygon points="20,68 72,56 72,59 20,71"/>
+
+    <!-- Layer 5 (bottom): -->
+    <polygon points="20,73 72,61 72,66 20,78"/>
+    <polygon points="20,78 72,66 72,69 20,81"/>
+  </g>
+
+  <!--
+    Figure-8: two externally tangent circles
+    Top  circle: cy=37 r=14  (top=23, bottom=51)
+    Bot  circle: cy=65 r=14  (top=51, bottom=79)
+    Touch point y=51, cx=46 (horizontal centre of stack)
+  -->
+  <circle cx="46" cy="37" r="14"
+          fill="none" stroke="#111111" stroke-width="6.5"/>
+  <circle cx="46" cy="65" r="14"
+          fill="none" stroke="#111111" stroke-width="6.5"/>
+</svg>

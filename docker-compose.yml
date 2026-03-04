@@ -1,0 +1,69 @@
+services:
+
+  # ── База данных ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: baraban_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: drum_roulette
+      POSTGRES_USER: baraban
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - baraban_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U baraban -d drum_roulette"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - baraban_net
+
+  # ── Backend (Express + Prisma) ───────────────────────────────────────────────
+  backend:
+    build:
+      context: ../../backend/offers/baraban
+      dockerfile: Dockerfile
+    container_name: baraban_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://baraban:${POSTGRES_PASSWORD}@postgres:5432/drum_roulette
+      BOT_TOKEN: ${BOT_TOKEN}
+      TELEGRAM_BEAR_GIFT_ID: ${TELEGRAM_BEAR_GIFT_ID}
+      PORT: 3001
+      NODE_ENV: production
+      DEV_MODE: "false"
+      FRONTEND_URL: https://funplace.pro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - baraban_net
+
+  # ── Frontend (React static → nginx) ─────────────────────────────────────────
+  # Подключён к двум сетям:
+  #   baraban_net    — для проксирования /api/* на baraban_backend
+  #   esoteric_network — чтобы esoteric_nginx мог проксировать funplace.pro сюда
+  frontend:
+    build:
+      context: ../../frontend/baraban
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""      # пустая строка → относительные URL, nginx проксирует /api
+    container_name: baraban_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - baraban_net
+      - esoteric_network
+
+networks:
+  baraban_net:
+    driver: bridge
+  esoteric_network:
+    external: true            # управляется docker-compose esoteric-стека
+    name: esoteric_network    # явное имя, заданное в docker-compose.base.yml esoteric
+
+volumes:
+  baraban_postgres_data:

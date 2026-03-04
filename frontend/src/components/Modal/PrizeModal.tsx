@@ -4,7 +4,7 @@ import { useGameStore } from '../../store/gameStore';
 import { useTelegram } from '../../hooks/useTelegram';
 
 const CHECKOUT_URL = 'https://esotericvision.ru/checkout/lottery';
-const BEAR_URL = 'https://t.me/servise_support';
+const BEAR_URL = 'https://t.me/supersupportforyou';
 const EXTRA_SPIN_IDS = ['extra_spin_1', 'extra_spin_2'];
 const BEAR_PRIZE_ID = 'telegram_bear';
 
@@ -306,22 +306,29 @@ const PrizeModal: React.FC<{ onNoSpins?: () => void }> = ({ onNoSpins }) => {
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: 0.5 }}
                                         style={{
-                                            background: 'rgba(255,255,255,0.04)',
-                                            border: '1px solid rgba(255,255,255,0.08)',
-                                            padding: '8px 12px',
+                                            background: 'rgba(251,146,60,0.12)',
+                                            border: '1.5px solid rgba(251,146,60,0.5)',
+                                            boxShadow: '0 0 18px rgba(251,146,60,0.2)',
+                                            padding: '10px 14px',
                                         }}
                                     >
-                                        <p style={{
-                                            color: 'rgba(255,220,150,0.55)',
-                                            fontSize: '11px',
-                                            lineHeight: 1.5,
-                                            fontWeight: 400,
-                                            margin: 0,
-                                            textAlign: 'center',
-                                        }}>
-                                            Для этого: необходимо оплатить 2 рубля для доступа к приватной раздаче!
-                                            Подтвердите участие и дождитесь розыгрыша!
-                                        </p>
+                                        {/* Пульсирующая полоска сверху */}
+                                        <div style={{
+                                            position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+                                            background: 'linear-gradient(90deg, transparent, #fb923c, #fbbf24, #fb923c, transparent)',
+                                            animation: 'pulse-opacity-text 1.8s ease-in-out infinite',
+                                        }}
+                                        />
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                            <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>🔒</span>
+                                            <p style={{
+                                                color: '#fdba74', fontSize: '12px', lineHeight: 1.55,
+                                                fontWeight: 600, margin: 0, textAlign: 'left',
+                                            }}>
+                                                Во избежание вручения приза боту мы просим подтвердить,
+                                                что вы&nbsp;человек и&nbsp;указать реквизиты для получения приза!
+                                            </p>
+                                        </div>
                                     </motion.div>}
                                 </>
                             )}

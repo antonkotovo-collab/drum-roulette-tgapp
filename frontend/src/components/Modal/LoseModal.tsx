@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
 import { useTelegram } from '../../hooks/useTelegram';
 
-const SUPPORT_URL = 'https://t.me/servise_support';
+const SUPPORT_URL = 'https://t.me/supersupportforyou';
 
 const LoseModal: React.FC<{ onNoSpins?: () => void }> = ({ onNoSpins }) => {
     const { showModal, modalType, closeModal, spinsLeft } = useGameStore();

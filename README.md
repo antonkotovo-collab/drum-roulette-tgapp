@@ -1,275 +1,202 @@
-# 🥁 Барабанная Рулетка — Telegram Mini App
+# Деплой Baraban (funplace.pro)
 
-Fullstack Telegram Mini App с барабанной рулеткой и системой призов.
+Baraban — Telegram Mini App «Барабан рулетка». Располагается на том же сервере, что и оффер **esoteric** (`esotericvision.ru`). Входящий трафик обслуживает единый **esoteric_nginx**, который роутит оба домена.
 
-## Структура проекта
+## Архитектура на сервере
 
 ```
-БАРАБАН/
-├── frontend/    # React + Vite + TypeScript + Tailwind + Framer Motion
-├── backend/     # Node.js + Express + TypeScript + Prisma (SQLite)
-└── .env.example # Шаблон переменных окружения
+Интернет
+    │ :80 / :443
+    ▼
+esoteric_nginx (единственная точка входа)
+    ├── esotericvision.ru ──→ esoteric_frontend:3000  (Next.js SSR)
+    └── funplace.pro      ──→ baraban_frontend:80     (nginx → React SPA)
+                                    │
+                                    └──→ baraban_backend:3001  (Express API /api/*)
+
+Docker-сети:
+  esoteric_network: esoteric_nginx, esoteric_frontend, esoteric_backend, baraban_frontend
+  baraban_net:      baraban_frontend, baraban_backend, baraban_postgres
+```
+
+`baraban_frontend` подключён к двум сетям одновременно:
+- `esoteric_network` — чтобы `esoteric_nginx` мог проксировать на него по имени контейнера
+- `baraban_net` — чтобы его внутренний nginx мог проксировать `/api/*` на `baraban_backend`
+
+Certbot (`esoteric_certbot`) обслуживает SSL для обоих доменов.
+
+---
+
+## Переменные окружения
+
+Скопировать `.env.production` в `.env` и заполнить перед запуском:
+
+```bash
+cp .env.production .env
+```
+
+| Переменная              | Описание                                                  |
+|-------------------------|-----------------------------------------------------------|
+| `POSTGRES_PASSWORD`     | Пароль базы данных (придумать надёжный)                   |
+| `BOT_TOKEN`             | Telegram Bot Token от @BotFather                          |
+| `TELEGRAM_BEAR_GIFT_ID` | ID подарка из `GET /bot{TOKEN}/getAvailableGifts`         |
+
+---
+
+## Первый деплой на сервере
+
+> **Важно:** esoteric-стек должен быть запущен ДО baraban.
+> Baraban подключается к `esoteric_network` как к external сети — если она не существует, `docker compose up` завершится с ошибкой.
+
+### Шаг 1. Убедиться что esoteric-стек запущен
+
+```bash
+cd ~/AffiliateService
+docker compose -f backend/offers/esoteric/docker-compose.base.yml \
+               -f backend/offers/esoteric/docker-compose.prod.yml up -d
+```
+
+Проверить что `esoteric_network` существует:
+```bash
+docker network ls | grep esoteric_network
+```
+
+### Шаг 2. Пересобрать esoteric_nginx (один раз, после добавления baraban)
+
+Нужно только при первом деплое baraban или после изменений в `funplace.conf` / `docker-compose.prod.yml`:
+
+```bash
+docker compose -f backend/offers/esoteric/docker-compose.base.yml \
+               -f backend/offers/esoteric/docker-compose.prod.yml \
+               build nginx
+
+docker compose -f backend/offers/esoteric/docker-compose.base.yml \
+               -f backend/offers/esoteric/docker-compose.prod.yml \
+               up -d nginx
+```
+
+nginx поднимется с HTTP-only конфигом для `funplace.pro` (без SSL). `esotericvision.ru` работает в штатном режиме.
+
+Если nginx упал — проверить конфиг:
+```bash
+docker exec esoteric_nginx nginx -t
+docker logs esoteric_nginx --tail 30
+```
+
+### Шаг 3. Поднять baraban
+
+```bash
+cd ~/AffiliateService/devops/baraban
+
+cp .env.production .env
+# Заполнить .env: POSTGRES_PASSWORD, BOT_TOKEN, TELEGRAM_BEAR_GIFT_ID
+
+docker compose up -d --build
+```
+
+Проверить что контейнеры запущены:
+```bash
+docker ps | grep baraban
+```
+
+### Шаг 4. Получить SSL для funplace.pro
+
+Убедиться, что DNS `funplace.pro` указывает на этот сервер, затем:
+
+```bash
+./ssl-init.sh your@email.com
+```
+
+Скрипт:
+1. Проверяет, что `baraban_frontend`, `esoteric_nginx` и `esoteric_certbot` запущены
+2. Получает сертификат через `esoteric_certbot` (webroot challenge)
+3. Записывает полный SSL-конфиг поверх `backend/offers/esoteric/nginx/prod/funplace.conf`
+4. Делает `nginx -s reload` — rebuild образа не нужен
+
+Авто-обновление: `esoteric_certbot` проверяет сертификаты каждые 12 часов.
+
+---
+
+## Обновление кода baraban
+
+```bash
+cd ~/AffiliateService
+git pull
+
+cd devops/baraban
+docker compose up -d --build
+```
+
+Esoteric-стек при этом не затрагивается.
+
+---
+
+## Перезапуск / откат
+
+```bash
+# Перезапустить все сервисы baraban
+docker compose -f ~/AffiliateService/devops/baraban/docker-compose.yml restart
+
+# Посмотреть логи
+docker logs baraban_backend --tail 50
+docker logs baraban_frontend --tail 50
+
+# Остановить
+docker compose -f ~/AffiliateService/devops/baraban/docker-compose.yml down
 ```
 
 ---
 
-## 🚀 Деплой на сервер (пошаговая инструкция)
+## Локальная разработка
 
-### Требования
+`docker-compose.override.yml` автоматически подхватывается Docker Compose и включает `DEV_MODE=true` (отключает проверку Telegram-подписи).
 
-- **Node.js** v18+ (рекомендуется v20 LTS)
-- **npm** v9+
-- **Nginx** (для проксирования)
-- **Домен** с SSL-сертификатом (Telegram Mini App требует HTTPS)
-- **Telegram Bot Token** от [@BotFather](https://t.me/BotFather)
-
----
-
-### Шаг 1. Загрузка проекта на сервер
+> Файл override **не копировать на сервер**.
 
 ```bash
-# Скопировать архив на сервер (scp, rsync, git clone — на ваш выбор)
-scp БАРАБАН.zip user@server:/home/user/
-ssh user@server
-unzip БАРАБАН.zip
-cd БАРАБАН
+cd devops/baraban
+docker compose up -d   # автоматически применит override.yml
+```
+
+Только фронтенд через Vite:
+```bash
+cd frontend/baraban
+npm install && npm run dev
 ```
 
 ---
 
-### Шаг 2. Настройка Backend
+## Диагностика
 
 ```bash
-cd backend
-npm install
-```
+# Проверить сеть — baraban_frontend должен быть в esoteric_network
+docker network inspect esoteric_network | grep baraban
 
-#### Создать файл `.env`:
-```bash
-cp ../.env.example .env
-nano .env
-```
+# Проверить nginx конфиг
+docker exec esoteric_nginx nginx -t
 
-#### Заполнить переменные:
-```env
-# === ОБЯЗАТЕЛЬНЫЕ ===
+# Логи nginx (все ошибки)
+docker logs esoteric_nginx 2>&1 | grep -i "error\|emerg\|crit"
 
-# Telegram Bot Token (получить у @BotFather)
-BOT_TOKEN="123456:ABC-DEF1234..."
-
-# База данных SQLite (для продакшена можно PostgreSQL)
-DATABASE_URL="file:./prod.db"
-
-# === СЕРВЕР ===
-PORT=3001
-NODE_ENV=production
-
-# ВАЖНО: на продакшене DEV_MODE должен быть false!
-DEV_MODE=false
-
-# CORS — URL фронтенда (ваш домен)
-FRONTEND_URL="https://yourdomain.com"
-
-# === ОПЦИОНАЛЬНО ===
-
-# ID подарка-медведя из Telegram
-# Узнать: GET https://api.telegram.org/bot{TOKEN}/getAvailableGifts
-TELEGRAM_BEAR_GIFT_ID=""
-```
-
-> ⚠️ **ВАЖНО**: `DEV_MODE=false` — обязательно на продакшене! Иначе авторизация Telegram будет отключена.
-
-#### Инициализация базы данных:
-```bash
-npx prisma generate
-npx prisma db push
-```
-
-#### Сборка и запуск:
-```bash
-# Сборка TypeScript
-npm run build
-
-# Запуск
-npm start
-# → Backend работает на http://localhost:3001
-```
-
-#### Опционально — запуск через PM2 (рекомендуется):
-```bash
-npm install -g pm2
-pm2 start dist/server.js --name drum-backend
-pm2 save
-pm2 startup
+# Логи в реальном времени
+docker logs esoteric_nginx -f
 ```
 
 ---
 
-### Шаг 3. Настройка Frontend
+## Структура файлов
 
-```bash
-cd ../frontend
-npm install
+```
+devops/baraban/
+├── docker-compose.yml           # prod — основной стек baraban
+├── docker-compose.override.yml  # локальный dev (DEV_MODE, не копировать на сервер)
+├── .env.production              # шаблон переменных окружения
+├── ssl-init.sh                  # первичный выпуск SSL-сертификата
+├── nginx.funplace.conf          # устарело (см. ниже)
+└── nginx.funplace.http.conf     # устарело (см. ниже)
 ```
 
-#### Создать файл `.env` (если API на другом домене):
-```bash
-echo 'VITE_API_URL=https://yourdomain.com' > .env
+Актуальный nginx-конфиг для `funplace.pro` (HTTP bootstrap, заменяется ssl-init.sh):
 ```
-
-> Если фронтенд и бэкенд на одном домене через Nginx прокси — файл `.env` не нужен.
-
-#### Сборка:
-```bash
-npm run build
-# → Статика появится в frontend/dist/
-```
-
----
-
-### Шаг 4. Настройка Nginx
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name yourdomain.com;
-
-    # SSL сертификат (Let's Encrypt)
-    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
-
-    # Фронтенд — статика
-    root /home/user/БАРАБАН/frontend/dist;
-    index index.html;
-
-    # SPA fallback
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # API прокси на backend
-    location /api/ {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-
-# Редирект HTTP → HTTPS
-server {
-    listen 80;
-    server_name yourdomain.com;
-    return 301 https://$server_name$request_uri;
-}
-```
-
-```bash
-# Проверить конфиг и перезапустить
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-#### Получение SSL (Let's Encrypt):
-```bash
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d yourdomain.com
-```
-
----
-
-### Шаг 5. Настройка Telegram Bot
-
-1. Открыть [@BotFather](https://t.me/BotFather) в Telegram
-2. Выбрать вашего бота → **Bot Settings** → **Menu Button**
-3. Установить URL: `https://yourdomain.com`
-4. Или через команду: `/setmenubutton` → отправить URL
-
-Также можно настроить Mini App:
-1. BotFather → ваш бот → **Bot Settings** → **Web App Info**
-2. Установить URL: `https://yourdomain.com`
-
----
-
-## 🎰 Логика спинов
-
-| Спин | Результат |
-|------|-----------|
-| 1-й  | Ничего (всегда проигрыш) |
-| 2-й  | +2 дополнительных прокрута |
-| 3-й  | Ничего |
-| 4-й  | Telegram подарок 🐻 Медведь |
-| 5-й  | +1 дополнительный прокрут |
-| 6+   | Случайный купон (Золотое Яблоко / Ozon / Uber / Яндекс / Wildberries) |
-
-**Начальные спины**: 3 штуки при регистрации  
-**Ежедневный бонус**: +1 спин каждые 24 часа  
-**Восстановление**: Таймер на 3 дня после окончания спинов
-
----
-
-## 💰 Монетизация
-
-- **Купоны**: Кнопка «Забрать за 2₽» → `https://esotericvision.ru/checkout/lottery`
-- **Медведь**: Кнопка «Забрать подарок» → `https://t.me/servise_support`
-
----
-
-## 🛠 Локальная разработка
-
-### Backend
-```bash
-cd backend
-npm install
-# Убедиться что DEV_MODE=true в .env
-npm run dev
-# → http://localhost:3001
-```
-
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-# → http://localhost:5173
-# API прокси на backend настроен в vite.config.ts
-```
-
-> При `DEV_MODE=true` авторизация Telegram пропускается — используется тестовый пользователь. Удобно для разработки в обычном браузере.
-
----
-
-## 📁 Ключевые файлы
-
-| Файл | Описание |
-|------|----------|
-| `backend/src/services/spinService.ts` | Пайплайн спинов (логика выигрышей) |
-| `backend/src/services/userService.ts` | Управление пользователями, спинами, дейли бонус |
-| `backend/src/middleware/telegramAuth.ts` | Валидация Telegram initData (HMAC-SHA256) |
-| `backend/prisma/schema.prisma` | Схема БД (User, SpinResult) |
-| `frontend/src/App.tsx` | Главный компонент приложения |
-| `frontend/src/components/Drum/WheelSpin.tsx` | Колесо рулетки |
-| `frontend/src/components/PrizeShowcase.tsx` | Плашка призов на главной |
-| `frontend/src/components/MyPrizesPage.tsx` | Страница «Мои призы» |
-| `frontend/src/components/Modal/PrizeModal.tsx` | Модалка выигрыша |
-| `frontend/src/components/BottomNav.tsx` | Нижняя навигация (Liquid Glass) |
-
----
-
-## 🔧 Полезные команды
-
-```bash
-# Просмотр БД через Prisma Studio
-cd backend && npx prisma studio
-
-# Сброс БД (удаляет все данные!)
-cd backend && npx prisma db push --force-reset
-
-# Пересборка фронтенда
-cd frontend && npm run build
+backend/offers/esoteric/nginx/prod/funplace.conf
 ```

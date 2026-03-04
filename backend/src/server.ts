@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { rateLimit } from 'express-rate-limit';
 import pinoHttp from 'pino-http';
 import spinRouter from './routes/spin';
 import userRouter from './routes/user';
@@ -12,11 +11,8 @@ import { logger } from './lib/logger';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 2); // 2 хопа: esoteric_nginx → baraban_frontend nginx → Express
 const PORT = process.env.PORT || 3001;
-
-// За Nginx — доверяем первому прокси, чтобы req.ip возвращал реальный IP клиента
-// Без этого ВСЕ пользователи будут иметь один IP (127.0.0.1) и делить один rate-limit
-app.set('trust proxy', 1);
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 
@@ -38,42 +34,9 @@ app.use(pinoHttp({ logger, autoLogging: process.env.NODE_ENV !== 'test' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ─── Rate Limiting ────────────────────────────────────────────────────────────
-
-// Общий лимит: 100 запросов в минуту на IP
-const generalLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов, попробуйте позже' },
-});
-
-// Строгий лимит для спинов: 20 в минуту на пользователя (защита от скрипт-атак)
-const spinLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много спинов, подождите минуту' },
-    keyGenerator: (req) => {
-        // Ключ по Telegram User ID — каждый пользователь имеет свой лимит
-        try {
-            const initData = req.body?.initData;
-            if (typeof initData === 'string') {
-                const match = initData.match(/"id"\s*:\s*(\d+)/);
-                if (match) return `tg:${match[1]}`;
-            }
-        } catch { /* fallback to IP */ }
-        return req.ip || 'unknown';
-    },
-});
-
-app.use(generalLimiter);
-
 // ─── Роуты ────────────────────────────────────────────────────────────────────
 
-app.use('/api/spin', spinLimiter, spinRouter);
+app.use('/api/spin', spinRouter);
 app.use('/api/user', userRouter);
 app.use('/api/winners', winnersRouter);
 
