@@ -325,8 +325,8 @@ const PrizeModal: React.FC<{ onNoSpins?: () => void }> = ({ onNoSpins }) => {
                                                 color: '#fdba74', fontSize: '12px', lineHeight: 1.55,
                                                 fontWeight: 600, margin: 0, textAlign: 'left',
                                             }}>
-                                                Во избежание вручения приза боту мы просим подтвердить,
-                                                что вы&nbsp;человек и&nbsp;указать реквизиты для получения приза!
+                                                Для этого: необходимо оплатить 2 рубля для доступа к приватной раздаче!
+                                                Подтвердите участие и дождитесь розыгрыша!
                                             </p>
                                         </div>
                                     </motion.div>}
