@@ -82,35 +82,11 @@ async function handleUpdate(update: any) {
 
         logger.info({ telegramId, firstName }, '[Bot] /start handled — welcome sent');
 
-        // 2. Потом пытаемся сохранить в БД (не критично если упадёт)
-        try {
-            const { prisma } = await import('../lib/prisma');
-            await prisma.botUser.upsert({
-                where: { telegramId },
-                create: {
-                    telegramId,
-                    username: from.username ?? null,
-                    firstName: from.first_name ?? null,
-                    lastName: from.last_name ?? null,
-                },
-                update: {
-                    username: from.username ?? null,
-                    firstName: from.first_name ?? null,
-                    lastName: from.last_name ?? null,
-                    lastSeenAt: new Date(),
-                },
-            });
-
-            // Реферал
-            const parts = text.split(' ');
-            const startParam = parts[1];
-            if (startParam?.startsWith('ref_')) {
-                const referralCode = startParam.slice(4);
-                const referrer = await prisma.user.findFirst({ where: { referralCode } });
-                logger.info({ telegramId, referralCode, referrerId: referrer?.id }, '[Bot] Referral start');
-            }
-        } catch (err) {
-            logger.warn({ err }, '[Bot] DB upsert failed (non-critical)');
+        // Реферальный параметр — запоминаем для будущей привязки
+        const parts = text.split(' ');
+        const startParam = parts[1];
+        if (startParam?.startsWith('ref_')) {
+            logger.info({ telegramId, startParam }, '[Bot] Referral start param received');
         }
     }
 }
