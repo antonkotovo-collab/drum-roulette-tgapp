@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getReferral, claimReferralCode, claimChannelBonus } from '../services/api';
+import { getReferral, claimChannelBonus } from '../services/api';
 import { useTelegram } from '../hooks/useTelegram';
 import type { PageType } from './BottomNav';
 import type { ReferralResponse } from '../types/prizes';
@@ -36,16 +36,7 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ onNavigate }) => {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    // Обработка реферального start_param при первом входе
-    useEffect(() => {
-        if (!isReady) return;
-        const tg = (window as any).Telegram?.WebApp;
-        const startParam: string | undefined = tg?.initDataUnsafe?.start_param;
-        if (startParam?.startsWith('ref_')) {
-            const code = startParam.slice(4);
-            claimReferralCode(initData, code).catch(() => { });
-        }
-    }, [isReady, initData]);
+    // Обработка реферального start_param вынесена в App.tsx (чтобы не дублировать)
 
     const handleShare = () => {
         if (!data) return;

@@ -182,10 +182,14 @@ router.get('/referral', telegramAuth, async (req: AuthenticatedRequest, res: Res
  * POST /api/user/referral/join
  * Привязывает нового пользователя к рефереру (однократно).
  * Тело: { referredByCode: string }
+ *
+ * FIX: раньше падал с 404 если пользователь ещё не создан (race condition).
+ * Теперь сначала upsert-им пользователя через findOrCreateUser, потом привязываем.
  */
 router.post('/referral/join', telegramAuth, async (req: AuthenticatedRequest, res: Response) => {
     try {
-        const telegramId = String(req.telegramUser!.id);
+        const telegramUser = req.telegramUser!;
+        const telegramId = String(telegramUser.id);
         const { referredByCode } = req.body as { referredByCode?: string };
 
         if (!referredByCode) {
@@ -193,11 +197,9 @@ router.post('/referral/join', telegramAuth, async (req: AuthenticatedRequest, re
             return;
         }
 
-        const user = await prisma.user.findUnique({ where: { telegramId } });
-        if (!user) {
-            res.status(404).json({ error: 'User not found' });
-            return;
-        }
+        // Создаём пользователя если его ещё нет (фикс race condition: referral/join может
+        // вызваться раньше чем GET /api/user успеет создать запись)
+        const user = await findOrCreateUser(telegramUser);
 
         // Уже привязан
         if (user.referredByCode) {
