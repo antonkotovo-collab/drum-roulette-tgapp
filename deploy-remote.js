@@ -83,12 +83,16 @@ async function deploy() {
 
     await runSSH([
         { label: 'Git status', cmd: `cd ${projectPath} && git status` },
+        { label: 'Git stash', cmd: `cd ${projectPath} && git stash || echo "nothing to stash"` },
         { label: 'Git pull', cmd: `cd ${projectPath} && git pull origin main` },
         { label: 'Backend npm install', cmd: `cd ${projectPath}/backend && npm install --prefer-offline 2>&1 | tail -5` },
         { label: 'Prisma db push', cmd: `cd ${projectPath}/backend && npx prisma db push --accept-data-loss 2>&1 | tail -10` },
-        { label: 'PM2 restart backend', cmd: `pm2 restart all --no-color 2>&1 || echo "PM2 restart done"` },
+        // Build BEFORE restart — PM2 picks up fresh dist/
+        { label: 'Backend build', cmd: `cd ${projectPath}/backend && npm run build 2>&1 | tail -10` },
+        { label: 'PM2 restart backend', cmd: `pm2 restart drum-backend --update-env --no-color 2>&1 || pm2 start ${projectPath}/backend/dist/server.js --name drum-backend --no-color 2>&1` },
         { label: 'Frontend npm install', cmd: `cd ${projectPath}/frontend && npm install --prefer-offline 2>&1 | tail -5` },
         { label: 'Frontend build', cmd: `cd ${projectPath}/frontend && npm run build 2>&1 | tail -15` },
+        { label: 'PM2 save', cmd: `pm2 save --no-color 2>&1` },
         { label: 'Final PM2 status', cmd: 'pm2 list --no-color' },
     ]);
 
