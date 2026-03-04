@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 
 const router = Router();
@@ -9,19 +8,28 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
 const BOT_USERNAME = process.env.BOT_USERNAME || '';
 const FRONTEND_URL = process.env.FRONTEND_URL || '';
 
-// ─── Отправка Telegram-сообщения ─────────────────────────────────────────────
+// ─── Отправка Telegram-сообщения ───────────────────────────────────────────
 
 async function sendMessage(chatId: number | string, text: string, extra?: object) {
-    if (!BOT_TOKEN || BOT_TOKEN === 'your_bot_token_here') return;
+    if (!BOT_TOKEN || BOT_TOKEN === 'your_bot_token_here') {
+        logger.warn('[Bot] BOT_TOKEN not configured, skipping sendMessage');
+        return;
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', ...extra }),
             signal: controller.signal,
         });
+        const data = await res.json() as any;
+        if (!data.ok) {
+            logger.error({ data }, '[Bot] sendMessage failed');
+        } else {
+            logger.info({ chatId }, '[Bot] sendMessage ok');
+        }
     } catch (err: any) {
         if (err.name !== 'AbortError') logger.error({ err }, '[Bot] sendMessage error');
     } finally {
@@ -29,7 +37,7 @@ async function sendMessage(chatId: number | string, text: string, extra?: object
     }
 }
 
-// ─── Приветственное сообщение ─────────────────────────────────────────────────
+// ─── Приветственное сообщение ─────────────────────────────────────────────
 
 function welcomeMessage(firstName: string): string {
     return [
@@ -46,7 +54,7 @@ function welcomeMessage(firstName: string): string {
     ].join('\n');
 }
 
-// ─── Обработка update ────────────────────────────────────────────────────────
+// ─── Обработка update ────────────────────────────────────────────────────
 
 async function handleUpdate(update: any) {
     const message = update?.message;
@@ -56,49 +64,15 @@ async function handleUpdate(update: any) {
     if (!from) return;
 
     const telegramId = String(from.id);
-
-    // Сохраняем/обновляем BotUser (upsert)
-    await prisma.botUser.upsert({
-        where: { telegramId },
-        create: {
-            telegramId,
-            username: from.username ?? null,
-            firstName: from.first_name ?? null,
-            lastName: from.last_name ?? null,
-        },
-        update: {
-            username: from.username ?? null,
-            firstName: from.first_name ?? null,
-            lastName: from.last_name ?? null,
-            lastSeenAt: new Date(),
-        },
-    });
-
-    // Обрабатываем /start [ref_CODE]
     const text: string = message.text || '';
-    if (text.startsWith('/start')) {
-        // Регистрируем реферал если есть параметр
-        const parts = text.split(' ');
-        const startParam = parts[1]; // например "ref_ABC123"
-        if (startParam?.startsWith('ref_')) {
-            const referralCode = startParam.slice(4);
-            try {
-                const referrer = await prisma.user.findFirst({ where: { referralCode } });
-                // Регистрируем нового User с привязкой к рефереру (если он откроет мини-апп)
-                // Сохраняем код в BotUser для дальнейшего использования
-                logger.info({ telegramId, referralCode, referrerId: referrer?.id }, '[Bot] Referral start');
-            } catch (err) {
-                logger.error({ err }, '[Bot] Referral lookup error');
-            }
-        }
 
-        // Отправляем приветственное сообщение
+    if (text.startsWith('/start')) {
         const firstName = from.first_name || 'друг';
 
+        // 1. СНАЧАЛА отправляем приветственное сообщение
         await sendMessage(from.id, welcomeMessage(firstName), {
             reply_markup: {
                 inline_keyboard: [[
-                    // web_app — открывает мини-апп напрямую, без лишнего шага
                     FRONTEND_URL
                         ? { text: '🎡 Открыть рулетку', web_app: { url: FRONTEND_URL } }
                         : { text: '🎡 Открыть рулетку', url: `https://t.me/${BOT_USERNAME}` },
@@ -106,18 +80,48 @@ async function handleUpdate(update: any) {
             },
         });
 
-        logger.info({ telegramId, firstName }, '[Bot] /start handled');
+        logger.info({ telegramId, firstName }, '[Bot] /start handled — welcome sent');
+
+        // 2. Потом пытаемся сохранить в БД (не критично если упадёт)
+        try {
+            const { prisma } = await import('../lib/prisma');
+            await prisma.botUser.upsert({
+                where: { telegramId },
+                create: {
+                    telegramId,
+                    username: from.username ?? null,
+                    firstName: from.first_name ?? null,
+                    lastName: from.last_name ?? null,
+                },
+                update: {
+                    username: from.username ?? null,
+                    firstName: from.first_name ?? null,
+                    lastName: from.last_name ?? null,
+                    lastSeenAt: new Date(),
+                },
+            });
+
+            // Реферал
+            const parts = text.split(' ');
+            const startParam = parts[1];
+            if (startParam?.startsWith('ref_')) {
+                const referralCode = startParam.slice(4);
+                const referrer = await prisma.user.findFirst({ where: { referralCode } });
+                logger.info({ telegramId, referralCode, referrerId: referrer?.id }, '[Bot] Referral start');
+            }
+        } catch (err) {
+            logger.warn({ err }, '[Bot] DB upsert failed (non-critical)');
+        }
     }
 }
 
-// ─── Webhook endpoint ────────────────────────────────────────────────────────
+// ─── Webhook endpoint ─────────────────────────────────────────────────────
 
 /**
  * POST /bot/webhook
  * Telegram присылает сюда обновления. Защищён X-Telegram-Bot-Api-Secret-Token.
  */
 router.post('/webhook', async (req: Request, res: Response) => {
-    // Проверяем secret token (если настроен)
     if (WEBHOOK_SECRET) {
         const header = req.headers['x-telegram-bot-api-secret-token'];
         if (header !== WEBHOOK_SECRET) {

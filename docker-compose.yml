@@ -29,6 +29,8 @@ services:
     environment:
       DATABASE_URL: postgresql://baraban:${POSTGRES_PASSWORD}@postgres:5432/drum_roulette
       BOT_TOKEN: ${BOT_TOKEN}
+      BOT_USERNAME: ${BOT_USERNAME}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
       TELEGRAM_BEAR_GIFT_ID: ${TELEGRAM_BEAR_GIFT_ID}
       PORT: 3001
       NODE_ENV: production

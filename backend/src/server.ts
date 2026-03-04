@@ -5,6 +5,7 @@ import pinoHttp from 'pino-http';
 import spinRouter from './routes/spin';
 import userRouter from './routes/user';
 import winnersRouter from './routes/winners';
+import botRouter from './routes/bot';
 import { logger } from './lib/logger';
 
 // Загружаем переменные окружения
@@ -39,6 +40,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/spin', spinRouter);
 app.use('/api/user', userRouter);
 app.use('/api/winners', winnersRouter);
+app.use('/bot', botRouter);
 
 // Healthcheck
 app.get('/health', (_req, res) => {
