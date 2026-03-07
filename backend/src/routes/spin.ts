@@ -1,12 +1,13 @@
 import { Router, Response } from 'express';
 import { telegramAuth, AuthenticatedRequest } from '../middleware/telegramAuth';
-import { getSpinResult } from '../services/spinService';
+import { getSpinResult, COUPON_PRIZES } from '../services/spinService';
 import {
     findOrCreateUser,
     consumeSpin,
     saveSpinResult,
     addExtraSpins,
 } from '../services/userService';
+import { consumeGuaranteedPrize } from '../services/promoService';
 import { logger } from '../lib/logger';
 
 const router = Router();
@@ -66,8 +67,29 @@ router.post('/', telegramAuth, async (req: AuthenticatedRequest, res: Response) 
         const user = spinData.user;
         const spinNumber = spinData.spinNumber;
 
-        // Получить результат по пайплайну (userId определяет сценарий)
-        const spinResult = getSpinResult(user.id, spinNumber);
+        // ── Проверка гарантированного приза из промокода ─────────────────────
+        const guaranteedPrizeId = await consumeGuaranteedPrize(telegramId);
+
+        let spinResult: { result: string; prizeId: string | null; prize: typeof COUPON_PRIZES[0] | null };
+
+        if (guaranteedPrizeId) {
+            // Переопределяем результат гарантированным призом
+            if (guaranteedPrizeId === 'coupon') {
+                const coupon = COUPON_PRIZES[Math.floor(Math.random() * COUPON_PRIZES.length)];
+                spinResult = { result: coupon.name, prizeId: coupon.id, prize: coupon };
+            } else if (guaranteedPrizeId === 'extra_spin_1') {
+                spinResult = { result: '+1 Дополнительный прокрут', prizeId: 'extra_spin_1', prize: null };
+            } else if (guaranteedPrizeId === 'extra_spin_2') {
+                spinResult = { result: '+2 Дополнительных прокрута', prizeId: 'extra_spin_2', prize: null };
+            } else if (guaranteedPrizeId === 'telegram_bear') {
+                spinResult = { result: 'Telegram подарок 🐻 Медведь', prizeId: 'telegram_bear', prize: null };
+            } else {
+                spinResult = getSpinResult(user.id, spinNumber);
+            }
+        } else {
+            // Обычный сценарий
+            spinResult = getSpinResult(user.id, spinNumber);
+        }
 
         // Сохранить в БД
         await saveSpinResult(user.id, spinNumber, spinResult.result, spinResult.prizeId);

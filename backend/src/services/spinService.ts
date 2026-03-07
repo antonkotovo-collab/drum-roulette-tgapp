@@ -20,7 +20,7 @@ export const EXTRA_2: Prize = { id: 'extra_spin_2', name: '+2 Дополните
 export const TELEGRAM_BEAR: Prize = { id: 'telegram_bear', name: 'Telegram подарок 🐻 Медведь', weight: 0, icon: '🐻' };
 
 // Пул купонов для случайного выбора
-const COUPON_PRIZES: Prize[] = [
+export const COUPON_PRIZES: Prize[] = [
     { id: 'zolotoe_yabloko', name: 'Купон Золотое Яблоко 5000₽', weight: 20, icon: '🍎' },
     { id: 'ozon', name: 'Купон Ozon 5000₽', weight: 20, icon: '🛒' },
     { id: 'uber', name: 'Купон Uber 10 поездок', weight: 20, icon: '🚗' },
@@ -40,30 +40,39 @@ type Step =
 // Каждый элемент — шаг с 1-го спина
 
 const SCENARIOS: Step[][] = [
-    // Сценарий 1 (6 ходов, купон последний)
+    // Сценарий 1 (6 ходов): nothing extra_2 nothing bear nothing coupon
+    // Спины: 4→3→(+2)4→3→2→1→coupon(0) ✅
     ['nothing', 'extra_2', 'nothing', 'bear', 'nothing', 'coupon'],
 
-    // Сценарий 2 (7 ходов, купон предпоследний)
+    // Сценарий 2 (7 ходов): nothing extra_1 nothing bear extra_2 coupon nothing
+    // Спины: 4→3→(+1)3→2→1(bear)→(+2)2→coupon(1)→0 ✅
     ['nothing', 'extra_1', 'nothing', 'bear', 'extra_2', 'coupon', 'nothing'],
 
-    // Сценарий 3 (8 ходов, длинная интрига)
-    ['extra_2', 'nothing', 'nothing', 'extra_1', 'nothing', 'bear', 'extra_2', 'coupon'],
+    // Сценарий 3 (9 ходов, длинная интрига): extra_2 nothing nothing extra_1 nothing bear extra_2 coupon nothing
+    // Спины: 4→(+2)5→4→3→(+1)3→2→1→(+2)2→coupon(1)→0 ✅
+    ['extra_2', 'nothing', 'nothing', 'extra_1', 'nothing', 'bear', 'extra_2', 'coupon', 'nothing'],
 
-    // Сценарий 4 (жёсткий, купон последний)
+    // Сценарий 4 (7 ходов, жёсткий): nothing nothing extra_2 nothing nothing extra_1 coupon
+    // Спины: 4→3→2→(+2)3→2→1→(+1)1→coupon(0) ✅
     ['nothing', 'nothing', 'extra_2', 'nothing', 'nothing', 'extra_1', 'coupon'],
 
-    // Сценарий 5 (динамичный)
+    // Сценарий 5 (7 ходов, динамичный): extra_1 nothing extra_2 nothing bear nothing coupon
+    // Спины: 4→(+1)4→3→(+2)4→3→2→1→coupon(0) ✅
     ['extra_1', 'nothing', 'extra_2', 'nothing', 'bear', 'nothing', 'coupon'],
 
-    // Сценарий 6 (купон предпоследний, мягкий разгон)
+    // Сценарий 6 (7 ходов, мягкий разгон): nothing extra_2 nothing extra_1 nothing coupon nothing
+    // Спины: 4→3→(+2)4→3→(+1)3→2→coupon(1)→0 ✅
     ['nothing', 'extra_2', 'nothing', 'extra_1', 'nothing', 'coupon', 'nothing'],
 
-    // Сценарий 7 (9 ходов, купон последний)
+    // Сценарий 7 (9 ходов): extra_2 nothing nothing extra_1 nothing bear extra_2 nothing coupon
+    // Спины: 4→(+2)5→4→3→(+1)3→2→1→(+2)2→1→coupon(0) ✅
     ['extra_2', 'nothing', 'nothing', 'extra_1', 'nothing', 'bear', 'extra_2', 'nothing', 'coupon'],
 
-    // Сценарий 8 (10 ходов, купон предпоследний)
+    // Сценарий 8 (10 ходов): nothing extra_2 nothing extra_1 nothing nothing extra_2 bear coupon nothing
+    // Спины: 4→3→(+2)4→3→(+1)3→2→1→(+2)2→1(bear)→coupon(0)→0 ✅
     ['nothing', 'extra_2', 'nothing', 'extra_1', 'nothing', 'nothing', 'extra_2', 'bear', 'coupon', 'nothing'],
 ];
+
 
 // ─── Случайный режим (после сценария) ─────────────────────────────────────────
 //  Ничего:   57%  (570 весов)
@@ -121,7 +130,7 @@ export function getSpinResult(
     userId: number,
     spinNumber: number,
 ): { result: string; prizeId: string | null; prize: Prize | null } {
-    const scenarioIdx = userId % SCENARIOS.length;         // детерминированный выбор сценария
+    const scenarioIdx = (userId - 1) % SCENARIOS.length;  // первый юзер → сценарий 1
     const scenario = SCENARIOS[scenarioIdx];
     const stepIdx = spinNumber - 1;                         // spinNumber начинается с 1
 

@@ -83,7 +83,7 @@ router.post('/reset-pipeline', telegramAuth, async (req: AuthenticatedRequest, r
         const telegramId = String(req.telegramUser!.id);
         const user = await prisma.user.update({
             where: { telegramId },
-            data: { spinsUsed: 0, freeSpinsCount: 3 },
+            data: { spinsUsed: 0, freeSpinsCount: 4 },
         });
         res.json({ ok: true, spinsUsed: user.spinsUsed, freeSpinsCount: user.freeSpinsCount });
     } catch (error) {

@@ -29,21 +29,39 @@ function App() {
 
     const { initData, isReady } = useTelegram();
     const { spin, isSpinning, spinsLeft } = useSpinLogic();
-    const { isLoading, error, firstName, lastResult } = useGameStore();
+    const { isLoading, error, firstName, lastResult, refreshUser } = useGameStore();
     const [showNoSpins, setShowNoSpins] = React.useState(false);
     const [activePage, setActivePage] = React.useState<PageType>('main');
+    const [showPromoModal, setShowPromoModal] = React.useState(false);
+    const [promoCode, setPromoCode] = React.useState('');
+    const [promoLoading, setPromoLoading] = React.useState(false);
+    const [promoMessage, setPromoMessage] = React.useState<{ ok: boolean; text: string } | null>(null);
     const prizeShowcaseRef = React.useRef<HTMLDivElement>(null);
     const hasScrolled = React.useRef(false);
     const referralClaimed = React.useRef(false);
 
-    // Обработка реферального start_param при первом открытии
+    // Обработка реферального кода при первом открытии.
+    // Telegram НЕ передаёт start_param через initDataUnsafe когда Mini App открыт
+    // через кнопку web_app — поэтому бот передаёт код в URL как ?ref=XXXX.
     React.useEffect(() => {
         if (!isReady || referralClaimed.current) return;
+
         const tg = (window as any).Telegram?.WebApp;
+        const currentInitData: string = tg?.initData || '';
+        if (!currentInitData) return; // нет Telegram окружения
+
+        // Способ 1: ?ref=XXXX в URL (основной — бот добавляет при /start ref_XXXX)
+        const urlParams = new URLSearchParams(window.location.search);
+        const refFromUrl = urlParams.get('ref');
+
+        // Способ 2: start_param из initDataUnsafe (резервный, работает при прямом deep link)
         const startParam: string | undefined = tg?.initDataUnsafe?.start_param;
-        if (startParam?.startsWith('ref_')) {
+        const refFromStartParam = startParam?.startsWith('ref_') ? startParam.slice(4) : undefined;
+
+        const refCode = refFromUrl || refFromStartParam;
+        if (refCode) {
             referralClaimed.current = true;
-            claimReferralCode(initData, startParam.slice(4)).catch(() => { });
+            claimReferralCode(currentInitData, refCode).catch(() => { });
         }
     }, [isReady, initData]);
 
@@ -57,6 +75,40 @@ function App() {
             return () => clearTimeout(timer);
         }
     }, [isLoading]);
+    // Обновляем данные пользователя при каждом возврате на главную страницу
+    React.useEffect(() => {
+        if (activePage === 'main') {
+            refreshUser();
+        }
+    }, [activePage]);
+
+    const submitPromo = async () => {
+        const code = promoCode.trim();
+        if (!code || promoLoading) return;
+        setPromoLoading(true);
+        setPromoMessage(null);
+        try {
+            const tg = (window as any).Telegram?.WebApp;
+            const initDataStr: string = tg?.initData || '';
+            const res = await fetch('/api/promo/activate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-telegram-init-data': initDataStr },
+                body: JSON.stringify({ code }),
+            });
+            const data = await res.json();
+            if (data.ok) {
+                setPromoMessage({ ok: true, text: data.message });
+                setPromoCode('');
+                refreshUser(); // обновить счётчик спинов
+            } else {
+                setPromoMessage({ ok: false, text: data.error || 'Ошибка' });
+            }
+        } catch {
+            setPromoMessage({ ok: false, text: 'Ошибка соединения' });
+        } finally {
+            setPromoLoading(false);
+        }
+    };
 
     return (
         <div
@@ -133,6 +185,24 @@ function App() {
                             <SpinButton onSpin={spin} isSpinning={isSpinning} spinsLeft={spinsLeft} isLoading={isLoading} />
                         </motion.div>
 
+                        {/* ── Ввод промокода ────────────────────────────────────── */}
+                        <motion.div className="w-full max-w-xs px-6 mt-3" style={{ zIndex: 1 }}
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}>
+                            <button
+                                onClick={() => setShowPromoModal(true)}
+                                style={{
+                                    width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid rgba(192,132,252,0.3)',
+                                    background: 'rgba(147,51,234,0.12)', color: '#c084fc', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                    transition: 'all 0.2s',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(147,51,234,0.22)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(147,51,234,0.12)')}
+                            >
+                                🎟️ Ввести промокод
+                            </button>
+                        </motion.div>
+
                         {/* ── Плашка призов ───────────────────────────────────────── */}
                         <motion.div ref={prizeShowcaseRef} className="w-full flex justify-center mt-8" style={{ zIndex: 1 }}
                             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
@@ -157,7 +227,70 @@ function App() {
             <PrizeModal onNoSpins={() => setShowNoSpins(true)} />
             <LoseModal onNoSpins={() => setShowNoSpins(true)} />
             <WelcomeModal />
-            <NoSpinsModal visible={showNoSpins && activePage === 'main'} onClose={() => setShowNoSpins(false)} />
+            <NoSpinsModal visible={showNoSpins && activePage === 'main'} onClose={() => setShowNoSpins(false)} onPromo={() => { setShowPromoModal(true); }} />
+
+            {/* ── Промокод модалка ──────────────────────────────────── */}
+            <AnimatePresence>
+                {showPromoModal && (
+                    <motion.div
+                        key="promo-overlay"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        style={{
+                            position: 'fixed', inset: 0, zIndex: 1000,
+                            background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
+                        }}
+                        onClick={e => { if (e.target === e.currentTarget) { setShowPromoModal(false); setPromoMessage(null); setPromoCode(''); } }}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.85, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.85, opacity: 0, y: 20 }}
+                            style={{
+                                background: 'linear-gradient(145deg, #1a0d35, #0f0820)', border: '1px solid rgba(192,132,252,0.3)',
+                                borderRadius: '20px', padding: '28px', width: '100%', maxWidth: '340px',
+                            }}
+                        >
+                            <div style={{ fontSize: '32px', textAlign: 'center', marginBottom: '8px' }}>🎟️</div>
+                            <h2 style={{ textAlign: 'center', color: '#e9d5ff', fontWeight: 700, fontSize: '18px', marginBottom: '6px' }}>Промокод</h2>
+                            <p style={{ textAlign: 'center', color: 'rgba(196,181,253,0.6)', fontSize: '13px', marginBottom: '18px' }}>Введите промокод, чтобы получить бесплатные спины</p>
+
+                            {promoMessage && (
+                                <div style={{
+                                    padding: '10px 14px', borderRadius: '10px', marginBottom: '14px',
+                                    background: promoMessage.ok ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                                    border: `1px solid ${promoMessage.ok ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'}`,
+                                    color: promoMessage.ok ? '#86efac' : '#fca5a5', fontSize: '13px', textAlign: 'center',
+                                }}>
+                                    {promoMessage.text}
+                                </div>
+                            )}
+
+                            <input
+                                type="text"
+                                value={promoCode}
+                                onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                                onKeyDown={e => e.key === 'Enter' && !promoLoading && submitPromo()}
+                                placeholder="Введите промокод"
+                                style={{
+                                    width: '100%', padding: '12px 16px', borderRadius: '12px',
+                                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(192,132,252,0.3)',
+                                    color: '#e9d5ff', fontSize: '15px', letterSpacing: '2px', fontWeight: 700,
+                                    outline: 'none', textTransform: 'uppercase', marginBottom: '12px', textAlign: 'center',
+                                }}
+                            />
+                            <button
+                                onClick={submitPromo}
+                                disabled={promoLoading || !promoCode.trim()}
+                                style={{
+                                    width: '100%', padding: '13px', borderRadius: '12px', border: 'none',
+                                    background: promoLoading || !promoCode.trim() ? 'rgba(147,51,234,0.3)' : 'linear-gradient(135deg,#9333ea,#a855f7)',
+                                    color: '#fff', fontSize: '15px', fontWeight: 700, cursor: promoLoading ? 'not-allowed' : 'pointer',
+                                }}
+                            >
+                                {promoLoading ? '⏳ Активация...' : '✨ Активировать'}
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

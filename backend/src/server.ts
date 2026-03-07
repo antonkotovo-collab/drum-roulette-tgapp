@@ -2,11 +2,16 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pinoHttp from 'pino-http';
+import path from 'path';
 import spinRouter from './routes/spin';
 import userRouter from './routes/user';
 import winnersRouter from './routes/winners';
 import botRouter from './routes/bot';
+import adminRouter from './routes/admin';
+import trackingRouter from './routes/tracking';
+import promoRouter from './routes/promo';
 import { logger } from './lib/logger';
+
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -40,7 +45,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/spin', spinRouter);
 app.use('/api/user', userRouter);
 app.use('/api/winners', winnersRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/tracking', trackingRouter);
+app.use('/api/promo', promoRouter);
 app.use('/bot', botRouter);
+
+
+// ─── Admin UI ──────────────────────────────────────────────────────────────────
+app.use('/admin-static', express.static(path.join(__dirname, '../../public')));
+app.get('/admin', (_req, res) => {
+    res.sendFile(path.join(__dirname, '../../public/admin.html'));
+});
 
 // Healthcheck
 app.get('/health', (_req, res) => {

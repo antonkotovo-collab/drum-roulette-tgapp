@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Барабан — Админка</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/admin.css?v=4">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥁</text></svg>">
+    <style>
+    /* ── Mobile hamburger drawer ── */
+    @media (max-width: 768px) {
+        /* Hamburger button — always visible, fixed top-right */
+        #mob-menu-btn {
+            display: flex;
+            position: fixed;
+            top: 14px;
+            right: 14px;
+            z-index: 999;
+            width: 44px;
+            height: 44px;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 8, 32, .96);
+            border: 1px solid rgba(147,51,234,.45);
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 22px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.5);
+            color: #c084fc;
+            user-select: none;
+        }
+        /* Dark overlay */
+        #mob-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(7,3,15,.75);
+            z-index: 900;
+        }
+        #mob-overlay.open { display: block; }
+
+        /* Sidebar = left drawer */
+        .sidebar {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            bottom: 0 !important;
+            width: 260px !important;
+            height: 100dvh !important;
+            z-index: 950 !important;
+            transform: translateX(-100%) !important;
+            transition: transform .28s cubic-bezier(.4,0,.2,1) !important;
+            flex-direction: column !important;
+            display: flex !important;
+            border-right: 1px solid rgba(147,51,234,.3) !important;
+        }
+        .sidebar.mob-open {
+            transform: translateX(0) !important;
+        }
+
+        /* Logo row inside drawer */
+        .logo {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            padding: 18px 20px 16px !important;
+        }
+        /* Close ✕ button */
+        #mob-close-btn {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            width: 34px; height: 34px;
+            background: rgba(255,255,255,.07);
+            border: 1px solid rgba(255,255,255,.13);
+            border-radius: 9px;
+            cursor: pointer;
+            font-size: 16px;
+            color: rgba(196,181,253,.8);
+            flex-shrink: 0;
+        }
+
+        /* ── Nav: VERTICAL list inside drawer ── */
+        nav {
+            flex-direction: column !important;
+            display: flex !important;
+            overflow-y: auto !important;
+            overflow-x: visible !important;
+            padding: 10px 10px !important;
+        }
+        nav a {
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            gap: 12px !important;
+            padding: 11px 14px !important;
+            border-radius: 12px !important;
+            font-size: 14px !important;
+            min-width: unset !important;
+            border: 1px solid transparent !important;
+            white-space: nowrap !important;
+            width: 100% !important;
+        }
+        .nav-icon { font-size: 18px !important; flex-shrink: 0 !important; }
+        .nav-label { font-size: 14px !important; font-weight: 500 !important; }
+
+        /* Main: full width, no sidebar space */
+        .shell { overflow: visible !important; }
+        .main {
+            width: 100% !important;
+            padding: 16px 14px 24px !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+
+        /* Stats 2-col */
+        .stats-grid { grid-template-columns: repeat(2,1fr) !important; gap: 9px !important; margin-bottom: 16px !important; }
+        .stat-card { padding: 12px 14px !important; }
+        .stat-icon { font-size: 20px !important; }
+        .stat-val { font-size: 22px !important; }
+        .charts-row { grid-template-columns: 1fr !important; gap: 10px !important; }
+        .broadcast-card { max-width: 100% !important; padding: 16px !important; }
+        #section-bot > div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+        #section-promos .card > div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+        .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+        table { min-width: 460px !important; }
+        .toolbar { flex-wrap: wrap !important; gap: 8px !important; }
+        .search-wrap { width: 100% !important; min-width: 0 !important; }
+
+        /* Detail panel as bottom sheet */
+        .detail-panel {
+            top: auto !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+            width: 100% !important; height: 82dvh !important;
+            border-left: none !important;
+            border-top: 1px solid rgba(147,51,234,.35) !important;
+            border-radius: 20px 20px 0 0 !important;
+            transform: translateY(100%) !important;
+        }
+        .detail-panel.open { transform: translateY(0) !important; }
+        .toast { left: 14px !important; right: 14px !important; text-align: center !important; }
+        .login-card { width: calc(100% - 32px) !important; padding: 26px 20px !important; }
+    }
+    /* Desktop: hide mobile elements */
+    @media (min-width: 769px) {
+        #mob-menu-btn, #mob-overlay, #mob-close-btn { display: none !important; }
+    }
+    </style>
+</head>
+
+
+
+<body>
+
+    <!-- Login -->
+    <div id="login-screen">
+        <div class="login-card">
+            <div style="font-size:44px;margin-bottom:12px">🥁</div>
+            <h2>Барабан — Админка</h2>
+            <p>Введите токен доступа</p>
+            <input type="password" class="input" id="token-input" placeholder="ADMIN_TOKEN"
+                onkeydown="if(event.key==='Enter')doLogin()">
+            <div id="login-error">Неверный токен</div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:10px;cursor:pointer">
+                <input type="checkbox" id="remember-me" style="accent-color:#a855f7;width:14px;height:14px">
+                Запомнить меня
+            </label>
+            <button class="btn-login" onclick="doLogin()">Войти →</button>
+        </div>
+    </div>
+
+    <!-- App -->
+    <div class="shell" id="app" style="display:none">
+        <aside class="sidebar" id="sidebar">
+            <div class="logo">
+                <div>
+                    <h1>🥁 Барабан</h1>
+                    <p>Admin Panel</p>
+                </div>
+                <div id="mob-close-btn" onclick="closeMobMenu()">✕</div>
+            </div>
+            <nav id="nav">
+                <a class="active" data-sec="dashboard"><span class="nav-icon">📊</span><span class="nav-label">Дашборд</span></a>
+                <a data-sec="users"><span class="nav-icon">👥</span><span class="nav-label">Юзеры</span></a>
+                <a data-sec="prizes"><span class="nav-icon">🏆</span><span class="nav-label">Призы</span></a>
+                <a data-sec="broadcast"><span class="nav-icon">📢</span><span class="nav-label">Рассылка</span></a>
+                <a data-sec="tracking"><span class="nav-icon">🔗</span><span class="nav-label">Трекинг</span></a>
+                <a data-sec="promos"><span class="nav-icon">🎟️</span><span class="nav-label">Промо</span></a>
+                <a data-sec="bot"><span class="nav-icon">🤖</span><span class="nav-label">Бот</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <p id="server-host" style="font-size:11px;color:var(--muted)"></p>
+                <p style="margin-top:6px"><a href="#" onclick="doLogout()"
+                        style="color:#f87171;font-size:11px;text-decoration:none">Выйти</a></p>
+            </div>
+        </aside>
+
+        <main class="main">
+
+            <!-- Dashboard -->
+            <div class="section active" id="section-dashboard">
+                <div class="section-title">Дашборд <span class="auto-badge">auto 30s</span></div>
+                <div class="section-sub" id="dash-updated">Загрузка...</div>
+
+                <!-- Date filter -->
+                <div style="display:flex;gap:8px;margin-bottom:16px">
+                    <button class="btn btn-ghost btn-sm dash-date-btn active" data-d="today" onclick="setDashDate('today')">🔵 Сегодня</button>
+                    <button class="btn btn-ghost btn-sm dash-date-btn" data-d="yesterday" onclick="setDashDate('yesterday')">⏳ Вчера</button>
+                </div>
+
+                <!-- Row 1: All-time stats -->
+                <div class="stats-label">📊 Всего</div>
+                <div class="stats-grid">
+                    <div class="stat-card c-purple">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-val" id="s-users">—</div>
+                        <div class="stat-lbl">Пользователей</div>
+                    </div>
+                    <div class="stat-card c-blue">
+                        <div class="stat-icon">🎰</div>
+                        <div class="stat-val" id="s-spins">—</div>
+                        <div class="stat-lbl">Спинов всего</div>
+                    </div>
+                    <div class="stat-card c-green">
+                        <div class="stat-icon">🎁</div>
+                        <div class="stat-val" id="s-coupons">—</div>
+                        <div class="stat-lbl">Купонов выдано</div>
+                    </div>
+                    <div class="stat-card c-pink">
+                        <div class="stat-icon">🔥</div>
+                        <div class="stat-val" id="s-active">—</div>
+                        <div class="stat-lbl">Активных сегодня</div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Today/Yesterday stats -->
+                <div class="stats-label" style="margin-top:18px" id="dash-date-label">🌅 Сегодня</div>
+                <div class="stats-grid">
+                    <div class="stat-card c-yellow">
+                        <div class="stat-icon">👤</div>
+                        <div class="stat-val" id="s-new-today">—</div>
+                        <div class="stat-lbl">Новых юзеров</div>
+                    </div>
+                    <div class="stat-card c-orange">
+                        <div class="stat-icon">🎰</div>
+                        <div class="stat-val" id="s-spins-today">—</div>
+                        <div class="stat-lbl">Спинов</div>
+                    </div>
+                    <div class="stat-card c-teal">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-val" id="s-scenario-today">—</div>
+                        <div class="stat-lbl">Сценарий завершён</div>
+                    </div>
+                    <div class="stat-card c-pink2">
+                        <div class="stat-icon">💳</div>
+                        <div class="stat-val" id="s-pay-today">—</div>
+                        <div class="stat-lbl">Pay Click (2₽)</div>
+                    </div>
+                </div>
+
+                <div class="charts-row">
+                    <div class="chart-card" style="flex:2">
+                        <div class="chart-title">Активность сегодня (по часам)</div>
+                        <div class="chart-legend">
+                            <span class="legend-dot" style="background:#a855f7"></span><span>Спины</span>
+                            <span class="legend-dot" style="background:#22d3ee;margin-left:14px"></span><span>Новые
+                                юзеры</span>
+                        </div>
+                        <div id="hourly-chart" style="width:100%;height:100px;margin-top:8px">
+                            <span style="color:var(--muted);font-size:12px">Загрузка...</span>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">Юзеры по сценариям</div>
+                        <div class="scenario-bars" id="scenario-bars"><span
+                                style="color:var(--muted);font-size:12px">Загрузка...</span></div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:16px">
+                    <button class="btn btn-ghost" onclick="loadDash()">🔄 Обновить</button>
+                </div>
+                <!-- Dangerous actions -->
+                <div style="margin-top:16px;border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:14px;background:rgba(239,68,68,.05)">
+                    <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:8px;letter-spacing:.05em">&#9888;&#65039; ОПАСНЫЕ ДЕЙСТВИЯ</div>
+                    <button class="btn btn-danger" onclick="confirmAction('Сбросить спины ВСЕМ?','spinsUsed=0, freeSpinsCount=4 для всех пользователей.',resetAll)">⚠️ Сбросить всем спины</button>
+                </div>
+            </div>
+
+
+            <!-- Users -->
+            <div class="section" id="section-users">
+                <div class="section-title">Пользователи</div>
+                <div class="section-sub">Поиск, фильтры и управление спинами</div>
+                <div class="toolbar">
+                    <div class="search-wrap" style="position:relative">
+                        <input type="text" id="search-input" placeholder="Поиск по имени, @username, ID..." oninput="debounceSearch()">
+                        <button onclick="clearSearch()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1" title="Очистить">✕</button>
+                    </div>
+                    <select class="input input-sm" id="filter-scenario" onchange="loadUsers(1)" style="width:auto">
+                        <option value="">Все сценарии</option>
+                        <option value="1">Сценарий 1</option>
+                        <option value="2">Сценарий 2</option>
+                        <option value="3">Сценарий 3</option>
+                        <option value="4">Сценарий 4</option>
+                        <option value="5">Сценарий 5</option>
+                        <option value="6">Сценарий 6</option>
+                        <option value="7">Сценарий 7</option>
+                        <option value="8">Сценарий 8</option>
+                    </select>
+                    <select class="input input-sm" id="filter-coupon" onchange="loadUsers(1)" style="width:auto">
+                        <option value="">Все</option>
+                        <option value="yes">✅ Купон выдан</option>
+                        <option value="no">❌ Без купона</option>
+                    </select>
+                    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ CSV</button>
+                    <button class="btn btn-ghost btn-sm" onclick="loadUsers(usersPage)">🔄</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Пользователь</th>
+                                <th>Сценарий / прогресс</th>
+                                <th>Спинов</th>
+                                <th>Купон</th>
+                                <th>Регистрация</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-tbody"></tbody>
+                    </table>
+                    <div class="pagination" id="users-pag"></div>
+                </div>
+            </div>
+
+            <!-- Prizes -->
+            <div class="section" id="section-prizes">
+                <div class="section-title">Призы</div>
+                <div class="section-sub">Последние 100 выданных призов</div>
+                <div class="toolbar">
+                    <select class="input input-sm" id="prize-filter" onchange="loadPrizes()" style="width:auto">
+                        <option value="all">Все призы</option>
+                        <option value="zolotoe_yabloko">🍎 Золотое Яблоко</option>
+                        <option value="ozon">🛒 Ozon</option>
+                        <option value="uber">🚗 Uber</option>
+                        <option value="yandex">🎵 Яндекс</option>
+                        <option value="wildberries">🛍️ Wildberries</option>
+                        <option value="extra_spin_1">🎰 +1 спин</option>
+                        <option value="extra_spin_2">🎲 +2 спина</option>
+                        <option value="telegram_bear">🐻 Медведь</option>
+                    </select>
+                    <button class="btn btn-ghost btn-sm" onclick="loadPrizes()">🔄</button>
+                </div>
+                <!-- #12 Prize summary counters -->
+                <div id="prize-summary" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px"></div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Пользователь</th>
+                                <th>Telegram ID</th>
+                                <th>Приз</th>
+                                <th>Дата</th>
+                            </tr>
+                        </thead>
+                        <tbody id="prizes-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Broadcast -->
+            <div class="section" id="section-broadcast">
+                <div class="section-title">Рассылка</div>
+                <div class="section-sub">Кастомное сообщение с медиа и кнопками</div>
+                <div class="broadcast-card">
+
+                    <label>Текст сообщения (HTML)</label>
+                    <textarea class="input" id="bc-text"
+                        placeholder="Введите текст...&#10;&#10;Поддерживаются: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;a href=&quot;...&quot;&gt;ссылка&lt;/a&gt;"
+                        oninput="updatePreview()"></textarea>
+
+                    <label style="margin-top:16px">Медиафайл <span
+                            style="font-weight:400;color:var(--muted)">(опционально)</span></label>
+                    <div class="file-drop-zone" id="bc-drop-zone"
+                        onclick="document.getElementById('bc-file-input').click()"
+                        ondragover="event.preventDefault();this.classList.add('drag-over')"
+                        ondragleave="this.classList.remove('drag-over')" ondrop="handleFileDrop(event)">
+                        <input type="file" id="bc-file-input"
+                            accept="image/*,video/*,application/*,.pdf,.zip,.doc,.docx" style="display:none"
+                            onchange="handleFileSelect(event)">
+                        <div id="bc-drop-content">
+                            <div style="font-size:32px;margin-bottom:6px">📁</div>
+                            <div style="font-size:13px;font-weight:600;color:var(--text)">Нажми или перетащи файл</div>
+                            <div style="font-size:11px;color:var(--muted);margin-top:3px">Фото · Видео · Документ — до
+                                50 МБ</div>
+                        </div>
+                    </div>
+                    <div id="bc-media-status" style="display:none;margin-top:8px"></div>
+
+                    <label style="margin-top:16px">Inline‑кнопки <span
+                            style="font-weight:400;color:var(--muted)">(опционально)</span></label>
+                    <div id="bc-buttons-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px">
+                    </div>
+                    <button class="btn btn-ghost btn-sm" onclick="addButton()">+ Добавить кнопку</button>
+
+                    <label style="margin-top:18px">Предпросмотр</label>
+                    <div class="preview-box" id="bc-preview"><span style="color:var(--muted)">—</span></div>
+
+                    <div class="bc-progress" id="bc-progress">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                            <span style="font-size:12px;font-weight:600;color:var(--accent)" id="bc-prog-label">⏳
+                                Отправка...</span>
+                            <span style="font-size:12px;color:var(--muted)" id="bc-prog-pct">0%</span>
+                        </div>
+                        <div class="bc-prog-track">
+                            <div class="bc-prog-fill" id="bc-prog-fill"></div>
+                        </div>
+                        <div class="bc-stats">
+                            <span style="font-size:12px;color:#4ade80" id="bc-sent">✅ 0 доставлено</span>
+                            <span style="font-size:12px;color:#f87171" id="bc-fail">❌ 0 ошибок</span>
+                            <span style="font-size:12px;color:var(--muted)" id="bc-total"></span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex;gap:10px;margin-top:16px">
+                        <button class="btn btn-primary" id="bc-btn" onclick="sendBroadcast()">📢 Отправить
+                            рассылку</button>
+                        <button class="btn btn-ghost" onclick="clearBroadcastForm()">🗑 Очистить</button>
+                    </div>
+                    <p class="broadcast-note">⚠️ Сообщение уйдёт <strong>всем</strong> пользователям. Батчи по 25 / 1.1
+                        сек.</p>
+                </div>
+
+                <div class="history-header">
+                    <h3>📋 История рассылок</h3>
+                    <button class="btn btn-ghost btn-sm" onclick="loadBroadcastHistory()">🔄 Обновить</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Текст</th>
+                                <th>Медиа</th>
+                                <th>Кнопки</th>
+                                <th>Всего</th>
+                                <th>Доставлено</th>
+                                <th>Ошибок</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bc-history"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tracking -->
+            <div class="section" id="section-tracking">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">🔗 Трекинговые ссылки</h2>
+                        <button class="btn btn-sm" onclick="refreshTracking()">↻ Обновить</button>
+                    </div>
+
+                    <div
+                        style="margin-bottom:20px;padding:18px;background:rgba(147,51,234,.08);border:1px solid rgba(147,51,234,.2);border-radius:12px">
+                        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Создать
+                            трекинговую ссылку</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                            <input type="text" class="input input-sm" id="tr-name"
+                                placeholder="Название площадки (Instagram, TikTok, YouTube...)"
+                                style="flex:2;min-width:220px;margin:0" oninput="onTrNameInput(this.value)">
+                            <button class="btn btn-sm"
+                                style="background:rgba(147,51,234,.15);color:var(--accent);border:1px solid rgba(147,51,234,.3)"
+                                onclick="regenerateTrSlug()" title="Перегенерировать">🔄</button>
+                            <button class="btn btn-sm" style="background:var(--purple);color:#fff"
+                                onclick="createTracking()">+ Создать</button>
+                        </div>
+                        <div id="tr-link-preview" style="margin-top:10px;display:none">
+                            <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Ссылки для трекинга:</div>
+                            <!-- Ссылка через бота -->
+                            <div style="margin-bottom:8px">
+                                <div style="font-size:11px;color:var(--muted);margin-bottom:3px">🤖 Через бота <span style="color:rgba(196,181,253,.5);font-size:10px">(?start=)</span></div>
+                                <div style="display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.2);padding:7px 12px;border-radius:8px">
+                                    <code id="tr-link-bot" style="font-size:11px;color:var(--accent);flex:1;word-break:break-all"></code>
+                                    <button class="btn btn-sm" style="flex-shrink:0;font-size:11px"
+                                        onclick="copyText(document.getElementById('tr-link-bot').textContent)">📋</button>
+                                </div>
+                            </div>
+                            <!-- Ссылка через mini app напрямую -->
+                            <div>
+                                <div style="font-size:11px;color:var(--muted);margin-bottom:3px">🚀 Прямой запуск Mini App <span style="color:rgba(196,181,253,.5);font-size:10px">(?startapp=)</span></div>
+                                <div style="display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.2);padding:7px 12px;border-radius:8px">
+                                    <code id="tr-link-app" style="font-size:11px;color:#22d3ee;flex:1;word-break:break-all"></code>
+                                    <button class="btn btn-sm" style="flex-shrink:0;font-size:11px"
+                                        onclick="copyText(document.getElementById('tr-link-app').textContent)">📋</button>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="tr-slug">
+                    </div>
+
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Источник</th>
+                                <th>🚀 Старты</th>
+                                <th>✅ Сценарий</th>
+                                <th>💳 Pay Click</th>
+                                <th>Конв. %</th>
+                                <th>Ссылка</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tr-tbody">
+                            <tr>
+                                <td colspan="7" class="loading-cell">
+                                    <div class="skel skel-row"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Promos -->
+            <div class="section" id="section-promos">
+                <div class="section-title">🎟️ Промокоды</div>
+                <div class="section-sub">Создавайте промокоды с дополнительными спинами и гарантированными призами</div>
+
+                <!-- Create form -->
+                <div class="card" style="margin-bottom:20px;padding:22px">
+                    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:16px">Создать промокод
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div>
+                            <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Промокод
+                                *</label>
+                            <div style="display:flex;gap:6px">
+                                <input type="text" class="input input-sm" id="pr-code" placeholder="SUMMER25"
+                                    style="margin:0;flex:1;text-transform:uppercase">
+                                <button class="btn btn-ghost btn-sm" onclick="generatePromoCode()"
+                                    title="Сгенерировать">🎲</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label
+                                style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Описание</label>
+                            <input type="text" class="input input-sm" id="pr-desc" placeholder="Необязательно"
+                                style="margin:0">
+                        </div>
+                        <div>
+                            <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Кол-во
+                                спинов *</label>
+                            <input type="number" class="input input-sm" id="pr-spins" value="3" min="1" max="50"
+                                style="margin:0">
+                        </div>
+                        <div>
+                            <label
+                                style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Гарантированный
+                                приз (на 1-й спин)</label>
+                            <select class="input input-sm" id="pr-prize" style="margin:0">
+                                <option value="">— Нет гарантии —</option>
+                                <option value="coupon">🎫 Случайный купон</option>
+                                <option value="extra_spin_1">🎰 +1 дополнительный спин</option>
+                                <option value="extra_spin_2">🎲 +2 дополнительных спина</option>
+                                <option value="telegram_bear">🐻 Telegram Медведь</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Макс.
+                                активаций (пусто = ∞)</label>
+                            <input type="number" class="input input-sm" id="pr-max" placeholder="∞" min="1"
+                                style="margin:0">
+                        </div>
+                    </div>
+                    <div style="margin-top:14px">
+                        <button class="btn btn-primary" onclick="createPromo()">+ Создать промокод</button>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Код</th>
+                                <th>Описание</th>
+                                <th>Спинов</th>
+                                <th>Гарантия</th>
+                                <th>Активаций</th>
+                                <th>Статус</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="promos-tbody">
+                            <tr>
+                                <td colspan="7" class="loading-cell">
+                                    <div class="skel skel-row"></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- Bot message editor -->
+            <div class="section" id="section-bot">
+                <div class="section-title">🤖 Бот — Приветственное сообщение</div>
+                <div class="section-sub">Сообщение отправляется пользователю при нажатии /start</div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+                    <!-- Editor -->
+                    <div class="card" style="padding:20px">
+                        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">Текст сообщения
+                        </div>
+                        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Поддерживает HTML: &lt;b&gt;,
+                            &lt;i&gt;, &lt;a href&gt;. Переменная для имени пользователя: <code
+                                style="color:var(--accent)">{{name}}</code></div>
+                        <textarea id="bot-text" rows="14" oninput="updateBotPreview()"
+                            style="width:100%;background:rgba(0,0,0,.25);border:1px solid var(--border2);border-radius:10px;padding:12px;color:var(--text);font-size:13px;font-family:monospace;resize:vertical;outline:none;line-height:1.6"></textarea>
+                        <button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="saveBotText()">💾
+                            Сохранить текст</button>
+                    </div>
+
+                    <!-- Preview -->
+                    <div class="card" style="padding:20px">
+                        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">Превью
+                            (Telegram HTML)</div>
+                        <div id="bot-preview"
+                            style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;padding:14px;min-height:220px;font-size:13px;line-height:1.7;white-space:pre-wrap;color:var(--text)">
+                        </div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:8px">💡 В превью вместо
+                            <code>{{name}}</code> будет имя: <b>Иван</b></div>
+                    </div>
+                </div>
+
+                <!-- Media upload -->
+                <div class="card" style="padding:20px">
+                    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">📎 Медиафайл (фото
+                        / видео)</div>
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Файл отправляется в Telegram,
+                        хранится file_id. Форматы: JPG, PNG, MP4 до 50МБ</div>
+
+                    <!-- Current media state -->
+                    <div id="bot-media-state" style="margin-bottom:14px"></div>
+
+                    <!-- Upload zone -->
+                    <div id="bot-dropzone"
+                        style="border:2px dashed rgba(192,132,252,0.3);border-radius:12px;padding:28px;text-align:center;cursor:pointer;transition:all .2s"
+                        onclick="document.getElementById('bot-file-input').click()"
+                        ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+                        ondragleave="this.style.borderColor='rgba(192,132,252,0.3)'"
+                        ondrop="event.preventDefault();this.style.borderColor='rgba(192,132,252,0.3)';handleBotFileDrop(event)">
+                        <div style="font-size:28px;margin-bottom:8px">📤</div>
+                        <div style="color:var(--muted);font-size:13px">Нажмите или перетащите файл сюда</div>
+                        <input type="file" id="bot-file-input" accept="image/*,video/mp4" style="display:none"
+                            onchange="uploadBotMedia(this.files[0])">
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Detail Panel -->
+    <div class="detail-overlay" id="detail-overlay" onclick="closeDetail()"></div>
+    <div class="detail-panel" id="detail-panel">
+        <div class="dp-header">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                <div>
+                    <h3 id="dp-name">—</h3>
+                    <p id="dp-sub">—</p>
+                </div>
+                <button onclick="closeDetail()"
+                    style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:5px 10px;color:var(--muted);cursor:pointer;font-size:13px;font-family:inherit">✕</button>
+            </div>
+        </div>
+        <div class="dp-body">
+            <div class="dp-section">
+                <div class="dp-section-title">Информация</div>
+                <div class="dp-row"><span class="dp-key">Telegram ID</span><span class="dp-val" id="dp-tid"
+                        style="font-family:monospace;font-size:12px">—</span></div>
+                <div class="dp-row"><span class="dp-key">Сценарий</span><span class="dp-val" id="dp-scenario">—</span>
+                </div>
+                <div class="dp-row"><span class="dp-key">Прогресс</span><span class="dp-val" id="dp-progress">—</span>
+                </div>
+                <div class="dp-row"><span class="dp-key">Спинов осталось</span><span class="dp-val"
+                        id="dp-spins">—</span></div>
+                <div class="dp-row"><span class="dp-key">Купон</span><span class="dp-val" id="dp-coupon">—</span></div>
+                <div class="dp-row"><span class="dp-key">Регистрация</span><span class="dp-val" id="dp-created">—</span>
+                </div>
+            </div>
+            <div class="dp-section">
+                <div class="dp-section-title">Управление</div>
+                <div class="dp-actions">
+                    <div class="add-spins-row">
+                        <input type="number" class="spin-count-input" id="dp-spin-count" value="1" min="1" max="20">
+                        <button class="btn btn-success btn-sm" onclick="addSpins()">+ Добавить спины</button>
+                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="resetCurrentUser()">↺ Сбросить сценарий</button>
+                </div>
+            </div>
+            <!-- #14 Send direct message -->
+            <div class="dp-section">
+                <div class="dp-section-title">✉️ Написать в Telegram</div>
+                <textarea id="dp-msg-text" class="input" rows="3" placeholder="Текст сообщения (HTML поддерживается)..." style="width:100%;font-size:13px;resize:vertical"></textarea>
+                <button class="btn btn-primary btn-sm" style="margin-top:8px;width:100%" onclick="sendMessage()">📨 Отправить</button>
+            </div>
+            <div class="dp-section">
+                <div class="dp-section-title">История спинов</div>
+                <div class="spin-history" id="dp-spins-history">—</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm -->
+    <div class="confirm-overlay" id="confirm-overlay">
+        <div class="confirm-card">
+            <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+            <h3 id="conf-title">Вы уверены?</h3>
+            <p id="conf-body">Это действие нельзя отменить.</p>
+            <div class="confirm-btns">
+                <button class="btn btn-ghost" onclick="closeConfirm()">Отмена</button>
+                <button class="btn btn-danger" id="conf-ok">Подтвердить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Hamburger button (mobile only) -->
+    <div id="mob-menu-btn" onclick="openMobMenu()">☰</div>
+    <!-- Overlay closes drawer on tap -->
+    <div id="mob-overlay" onclick="closeMobMenu()"></div>
+
+    <script src="/admin.js"></script>
+    <script>
+    function openMobMenu() {
+        document.getElementById('sidebar').classList.add('mob-open');
+        document.getElementById('mob-overlay').classList.add('open');
+    }
+    function closeMobMenu() {
+        document.getElementById('sidebar').classList.remove('mob-open');
+        document.getElementById('mob-overlay').classList.remove('open');
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('nav').addEventListener('click', function(e) {
+            if (e.target.closest('a[data-sec]') && window.innerWidth <= 768) {
+                closeMobMenu();
+            }
+        });
+    });
+    </script>
+</body>
+
+</html>

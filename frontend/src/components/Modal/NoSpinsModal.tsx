@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useGameStore } from '../../store/gameStore';
 
 const STORAGE_KEY = 'wheel_no_spins_since';
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -7,6 +8,7 @@ const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 interface NoSpinsModalProps {
     visible: boolean;
     onClose: () => void;
+    onPromo: () => void;
 }
 
 function getTimeLeft(): { d: number; h: number; m: number; s: number } {
@@ -22,13 +24,15 @@ function getTimeLeft(): { d: number; h: number; m: number; s: number } {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-const NoSpinsModal: React.FC<NoSpinsModalProps> = ({ visible }) => {
+const NoSpinsModal: React.FC<NoSpinsModalProps> = ({ visible, onClose, onPromo }) => {
     const [time, setTime] = useState(getTimeLeft);
+    const { spinsLeft } = useGameStore();
 
     // Записываем момент «закончились спины» при первом показе
     useEffect(() => {
         if (visible && !localStorage.getItem(STORAGE_KEY)) {
             localStorage.setItem(STORAGE_KEY, String(Date.now()));
+            setTime(getTimeLeft());
         }
     }, [visible]);
 
@@ -38,6 +42,13 @@ const NoSpinsModal: React.FC<NoSpinsModalProps> = ({ visible }) => {
         const id = setInterval(() => setTime(getTimeLeft()), 1000);
         return () => clearInterval(id);
     }, [visible]);
+
+    // Автозакрытие когда спины появились
+    useEffect(() => {
+        if (visible && spinsLeft > 0) {
+            onClose();
+        }
+    }, [spinsLeft, visible, onClose]);
 
     return (
         <AnimatePresence>
@@ -67,7 +78,7 @@ const NoSpinsModal: React.FC<NoSpinsModalProps> = ({ visible }) => {
                             <div style={{
                                 borderRadius: '26px',
                                 background: 'linear-gradient(160deg, #1a0a2e 0%, #0f0720 60%, #1a0a35 100%)',
-                                padding: '36px 28px 36px',
+                                padding: '36px 28px 28px',
                                 textAlign: 'center',
                             }}>
                                 {/* Иконка */}
@@ -95,7 +106,7 @@ const NoSpinsModal: React.FC<NoSpinsModalProps> = ({ visible }) => {
                                 {/* Таймер */}
                                 <div style={{
                                     display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-                                    gap: '8px',
+                                    gap: '8px', marginBottom: '22px',
                                 }}>
                                     {[
                                         { label: 'дней', val: time.d },
@@ -133,6 +144,20 @@ const NoSpinsModal: React.FC<NoSpinsModalProps> = ({ visible }) => {
                                         </div>
                                     ))}
                                 </div>
+
+                                {/* Промокод */}
+                                <button
+                                    onClick={onPromo}
+                                    style={{
+                                        width: '100%', padding: '13px', borderRadius: '14px',
+                                        border: '1px solid rgba(192,132,252,0.35)',
+                                        background: 'rgba(147,51,234,0.15)', color: '#c084fc',
+                                        fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                    }}
+                                >
+                                    🎟️ Ввести промокод
+                                </button>
                             </div>
                         </div>
                     </motion.div>

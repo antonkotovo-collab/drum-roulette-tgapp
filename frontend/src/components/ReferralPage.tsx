@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getReferral, claimChannelBonus } from '../services/api';
 import { useTelegram } from '../hooks/useTelegram';
+import { useGameStore } from '../store/gameStore';
 import type { PageType } from './BottomNav';
 import type { ReferralResponse } from '../types/prizes';
 
@@ -12,29 +13,55 @@ interface ReferralPageProps {
 const SPINS_PER_REFERRALS = 3; // 3 друга = 1 прокрут
 const CHANNEL_URL = 'https://t.me/+OqPC07FuhIwxNjI8';
 
+const POLL_INTERVAL_MS = 5000; // обновлять каждые 5 секунд
+
 const ReferralPage: React.FC<ReferralPageProps> = ({ onNavigate }) => {
     const { initData, isReady } = useTelegram();
+    const { refreshUser } = useGameStore();
     const [data, setData] = useState<ReferralResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
     const [shareAnim, setShareAnim] = useState(false);
     const [channelClaiming, setChannelClaiming] = useState(false);
     const [channelClaimAnim, setChannelClaimAnim] = useState(false);
+    const [newReferralAnim, setNewReferralAnim] = useState(false); // анимация нового реферала
+    const [newReferralToast, setNewReferralToast] = useState(false); // всплывашка
+    const prevCountRef = useRef<number | null>(null); // предыдущий счётчик для сравнения
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (silent = false) => {
         if (!isReady) return;
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const r = await getReferral(initData);
-            setData(r);
+            setData(prev => {
+                // Определяем появление нового реферала при фоновом обновлении
+                if (silent && prev !== null && r.referralCount > (prevCountRef.current ?? prev.referralCount)) {
+                    setNewReferralAnim(true);
+                    setNewReferralToast(true);
+                    setTimeout(() => setNewReferralAnim(false), 700);
+                    setTimeout(() => setNewReferralToast(false), 3000);
+                    // Обновляем спины на главной тоже
+                    refreshUser();
+                }
+                prevCountRef.current = r.referralCount;
+                return r;
+            });
         } catch (_) {
             // ignore silently
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [isReady, initData]);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    // Первичная загрузка
+    useEffect(() => { fetchData(false); }, [fetchData]);
+
+    // Polling — тихое обновление каждые 5 секунд
+    useEffect(() => {
+        if (!isReady) return;
+        const timer = setInterval(() => fetchData(true), POLL_INTERVAL_MS);
+        return () => clearInterval(timer);
+    }, [isReady, fetchData]);
 
     // Обработка реферального start_param вынесена в App.tsx (чтобы не дублировать)
 
@@ -137,6 +164,41 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ onNavigate }) => {
                 </p>
             </motion.div>
 
+            {/* ── Toast: новый реферал ─────────────────────────── */}
+            <AnimatePresence>
+                {newReferralToast && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -16, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -12, scale: 0.9 }}
+                        transition={{ duration: 0.35, type: 'spring', stiffness: 260, damping: 20 }}
+                        style={{
+                            position: 'fixed',
+                            top: 18,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            zIndex: 9999,
+                            background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                            borderRadius: 14,
+                            padding: '10px 18px',
+                            boxShadow: '0 4px 24px rgba(168,85,247,0.5)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            whiteSpace: 'nowrap',
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            pointerEvents: 'none',
+                        }}
+                    >
+                        <span style={{ fontSize: 18 }}>🎉</span>
+                        <span>+1 новый приглашённый!</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* ── Карточка прогресса ───────────────────────────────── */}
             <motion.div
                 initial={{ opacity: 0, scale: 0.92 }}
@@ -162,9 +224,13 @@ const ReferralPage: React.FC<ReferralPageProps> = ({ onNavigate }) => {
                         {/* Счётчики */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
                             <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: 28, fontWeight: 900, color: '#e9d5ff' }}>
+                                <motion.div
+                                    animate={newReferralAnim ? { scale: [1, 1.45, 0.9, 1.15, 1] } : {}}
+                                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                                    style={{ fontSize: 28, fontWeight: 900, color: '#e9d5ff' }}
+                                >
                                     {data?.referralCount ?? 0}
-                                </div>
+                                </motion.div>
                                 <div style={{ fontSize: 11, color: 'rgba(200,185,230,0.55)', marginTop: 2 }}>
                                     приглашено
                                 </div>

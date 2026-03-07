@@ -5,13 +5,29 @@ import type { UserPrize } from '../types/prizes';
 import { getUserPrizes } from '../services/api';
 import { useTelegram } from '../hooks/useTelegram';
 
-interface MyPrizesPageProps {
-    onNavigate: (page: PageType) => void;
+const COUPON_EXPIRY_MS = 30 * 60 * 1000; // 30 минут
+const COUPON_IDS = ['zolotoe_yabloko', 'ozon', 'uber', 'yandex', 'wildberries'];
+
+/**
+ * Хук обратного отсчёта для купонов.
+ * Возвращает { expired, label } — истёк и строка остатка в формате MM:SS.
+ */
+function usePrizeTimer(wonAt: string): { expired: boolean; label: string } {
+    const [now, setNow] = useState(() => Date.now());
+
+    useEffect(() => {
+        const id = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(id);
+    }, []);
+
+    const elapsed = now - new Date(wonAt).getTime();
+    const remaining = Math.max(0, COUPON_EXPIRY_MS - elapsed);
+    const expired = remaining === 0;
+    const m = Math.floor(remaining / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+    const label = expired ? '' : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return { expired, label };
 }
-
-
-
-// Цвет бейджа по prizeId
 const PRIZE_COLORS: Record<string, string> = {
     iphone17: '#f59e0b',
     zolotoe_yabloko: '#84cc16',
@@ -32,6 +48,83 @@ function formatDate(iso: string): string {
     const mins = d.getMinutes().toString().padStart(2, '0');
     return `${day}.${month} в ${hours}:${mins}`;
 }
+
+interface MyPrizesPageProps {
+    onNavigate: (page: PageType) => void;
+}
+
+/**
+ * Отдельный компонент кнопки для купонов — нужен чтобы вызвать usePrizeTimer внутри .map().
+ */
+const CouponButton: React.FC<{ wonAt: string; href: string; accentColor: string }> = ({ wonAt, href, accentColor }) => {
+    const { expired, label } = usePrizeTimer(wonAt);
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+            {expired ? (
+                <div style={{
+                    padding: '4px 10px',
+                    borderRadius: '10px',
+                    background: 'rgba(100,100,120,0.25)',
+                    border: '1px solid rgba(150,150,180,0.2)',
+                    color: 'rgba(180,170,210,0.45)',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    letterSpacing: '0.03em',
+                    cursor: 'not-allowed',
+                    whiteSpace: 'nowrap',
+                }}>
+                    Истёк ⏰
+                </div>
+            ) : (
+                <motion.a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    whileTap={{ scale: 0.93 }}
+                    onClick={() => {
+                        // Fire-and-forget tracking event
+                        try {
+                            const tg = (window as any).Telegram?.WebApp;
+                            const telegramId = tg?.initDataUnsafe?.user?.id
+                                ? String(tg.initDataUnsafe.user.id)
+                                : undefined;
+                            fetch('/api/tracking/event', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ event: 'pay_click', telegramId }),
+                            }).catch(() => { });
+                        } catch { /* ignore */ }
+                    }}
+                    style={{
+                        padding: '4px 10px',
+                        borderRadius: '10px',
+                        background: `linear-gradient(135deg, ${accentColor}88, ${accentColor})`,
+                        border: `1px solid ${accentColor}50`,
+                        color: '#fff',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        letterSpacing: '0.03em',
+                        textDecoration: 'none',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                    }}
+                >
+                    Забрать
+                </motion.a>
+            )}
+            <span style={{
+                fontSize: '9px',
+                fontWeight: 600,
+                color: expired ? 'rgba(180,170,210,0.3)' : 'rgba(200,180,255,0.55)',
+                letterSpacing: '0.03em',
+                lineHeight: 1,
+            }}>
+                {expired ? '' : label}
+            </span>
+        </div>
+    );
+};
 
 const MyPrizesPage: React.FC<MyPrizesPageProps> = ({ onNavigate }) => {
     const { initData, isReady } = useTelegram();
@@ -269,28 +362,12 @@ const MyPrizesPage: React.FC<MyPrizesPageProps> = ({ onNavigate }) => {
                                         </motion.a>
                                     )}
                                     {/* Кнопка для купонов */}
-                                    {['zolotoe_yabloko', 'ozon', 'uber', 'yandex', 'wildberries'].includes(prize.prizeId || '') && (
-                                        <motion.a
+                                    {COUPON_IDS.includes(prize.prizeId || '') && (
+                                        <CouponButton
+                                            wonAt={prize.wonAt}
                                             href="https://esotericvision.ru/checkout/lottery"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            whileTap={{ scale: 0.93 }}
-                                            style={{
-                                                padding: '4px 10px',
-                                                borderRadius: '10px',
-                                                background: `linear-gradient(135deg, ${accentColor}88, ${accentColor})`,
-                                                border: `1px solid ${accentColor}50`,
-                                                color: '#fff',
-                                                fontSize: '10px',
-                                                fontWeight: 700,
-                                                flexShrink: 0,
-                                                letterSpacing: '0.03em',
-                                                textDecoration: 'none',
-                                                cursor: 'pointer',
-                                            }}
-                                        >
-                                            Забрать
-                                        </motion.a>
+                                            accentColor={accentColor}
+                                        />
                                     )}
                                 </motion.div>
                             );

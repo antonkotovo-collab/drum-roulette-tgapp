@@ -18,6 +18,7 @@ function generateReferralCode(telegramId: string): string {
 export async function findOrCreateUser(
     telegramUser: TelegramUser,
     referredByCode?: string,
+    source?: string,
 ): Promise<User> {
     // Генерируем код заранее, чтобы использовать при create
     const newCode = generateReferralCode(String(telegramUser.id));
@@ -27,18 +28,22 @@ export async function findOrCreateUser(
         update: {
             firstName: telegramUser.first_name,
             username: telegramUser.username,
+            // Перезаписываем source если пользователь пришёл по новой трекинговой ссылке
+            ...(source ? { source } : {}),
         },
         create: {
             telegramId: String(telegramUser.id),
             firstName: telegramUser.first_name,
             username: telegramUser.username,
-            freeSpinsCount: 3,
+            freeSpinsCount: 4,
             spinsUsed: 0,
             lastDailyBonusAt: new Date(),
             referralCode: newCode,
             referredByCode: referredByCode || null,
+            source: source || null,
         },
     });
+
 
     // Если код ещё не назначен (старые пользователи) — назначить
     if (!user.referralCode) {

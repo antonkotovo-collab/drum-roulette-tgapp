@@ -1,13 +1,12 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
-import { useTelegram } from '../../hooks/useTelegram';
 
-const SUPPORT_URL = 'https://t.me/supersupportforyou';
+
 
 const LoseModal: React.FC<{ onNoSpins?: () => void }> = ({ onNoSpins }) => {
     const { showModal, modalType, closeModal, spinsLeft } = useGameStore();
-    const { openLink } = useTelegram();
+
     const isVisible = showModal && modalType === 'lose';
     const noSpins = spinsLeft <= 0;
 
@@ -72,24 +71,14 @@ const LoseModal: React.FC<{ onNoSpins?: () => void }> = ({ onNoSpins }) => {
                                         </span>
                                     </div>
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        <motion.button
-                                            onClick={() => openLink(SUPPORT_URL)}
-                                            whileTap={{ scale: 0.97 }} whileHover={{ scale: 1.02 }}
-                                            className="w-full py-4 rounded-2xl font-bold text-lg text-white"
-                                            style={{ background: 'linear-gradient(135deg, #9333ea, #db2777)', boxShadow: '0 4px 20px rgba(147,51,234,0.4)' }}
-                                        >
-                                            💬 Написать в поддержку
-                                        </motion.button>
-                                        <motion.button
-                                            onClick={handleClose}
-                                            whileTap={{ scale: 0.97 }}
-                                            className="w-full py-3 rounded-2xl font-semibold text-base"
-                                            style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(180,150,220,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
-                                        >
-                                            Закрыть
-                                        </motion.button>
-                                    </div>
+                                    <motion.button
+                                        onClick={handleClose}
+                                        whileTap={{ scale: 0.97 }}
+                                        className="w-full py-3 rounded-2xl font-semibold text-base"
+                                        style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(180,150,220,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                    >
+                                        Закрыть
+                                    </motion.button>
                                 </>
                             ) : (
                                 /* ── Обычный экран "не повезло" ── */

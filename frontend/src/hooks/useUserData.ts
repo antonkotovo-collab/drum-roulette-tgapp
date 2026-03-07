@@ -10,7 +10,7 @@ import { useTelegram } from './useTelegram';
  */
 export function useUserData() {
     const { initData, user: tgUser, isReady } = useTelegram();
-    const { setLoading, setUserData, setError } = useGameStore();
+    const { setLoading, setUserData, setError, refreshUserTrigger } = useGameStore();
 
     useEffect(() => {
         if (!isReady) return;
@@ -40,5 +40,5 @@ export function useUserData() {
         };
         document.addEventListener('visibilitychange', handleVisibility);
         return () => document.removeEventListener('visibilitychange', handleVisibility);
-    }, [isReady, initData]);
+    }, [isReady, initData, refreshUserTrigger]); // refreshUserTrigger — принудительный рефетч
 }

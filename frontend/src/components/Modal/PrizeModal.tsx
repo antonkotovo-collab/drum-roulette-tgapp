@@ -131,12 +131,12 @@ const BRAND: Record<string, {
         particles: ['🐻', '✨', '🎁', '💙'],
         badge: (
             <div style={{
-                width: 220, height: 220, borderRadius: 36,
+                width: 130, height: 130, borderRadius: 28,
                 background: 'linear-gradient(145deg,#1a6fa0,#2AABEE)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 0 40px rgba(42,171,238,0.5)',
             }}>
-                <img src="/bear4444.png" alt="Мишка" style={{ width: 200, height: 200, objectFit: 'contain' }} />
+                <img src="/bear4444.png" alt="Мишка" style={{ width: 116, height: 116, objectFit: 'contain' }} />
             </div>
         ),
     },
@@ -176,7 +176,8 @@ const PrizeModal: React.FC<{ onNoSpins?: () => void }> = ({ onNoSpins }) => {
                     <motion.div className="fixed inset-0 backdrop-blur-sm" style={{ background: 'rgba(10,5,20,0.9)', zIndex: 200 }}
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
 
-                    <motion.div className="fixed inset-x-4 bottom-24 rounded-3xl overflow-hidden" style={{ zIndex: 210 }}
+                    <motion.div className="fixed inset-x-4 rounded-3xl overflow-hidden"
+                        style={{ zIndex: 210, bottom: '80px', maxHeight: 'calc(100dvh - 100px)', overflowY: 'auto' }}
                         initial={{ y: 120, opacity: 0, scale: 0.85 }}
                         animate={{ y: 0, opacity: 1, scale: 1 }}
                         exit={{ y: 120, opacity: 0, scale: 0.85 }}

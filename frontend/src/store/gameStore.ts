@@ -9,6 +9,9 @@ interface GameState {
     firstName: string | null;
     nextBonusMs: number;  // мс до следующего бонуса (0 = доступен прямо сейчас)
 
+    // Триггер для принудительного рефетча данных пользователя
+    refreshUserTrigger: number;
+
     // Состояние игры
     isSpinning: boolean;
     isLoading: boolean;
@@ -36,6 +39,7 @@ interface GameState {
     openModal: (type: ModalType) => void;
     closeModal: () => void;
     resetGame: () => void;
+    refreshUser: () => void; // принудительный рефетч данных пользователя
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -45,6 +49,7 @@ export const useGameStore = create<GameState>((set) => ({
     userId: null,
     firstName: null,
     nextBonusMs: 0,
+    refreshUserTrigger: 0,
 
     isSpinning: false,
     isLoading: true,
@@ -71,6 +76,7 @@ export const useGameStore = create<GameState>((set) => ({
     setSpinning: (spinning) => set({ isSpinning: spinning }),
     setLoading: (loading) => set({ isLoading: loading }),
     setError: (error) => set({ error }),
+    refreshUser: () => set((state) => ({ refreshUserTrigger: state.refreshUserTrigger + 1 })),
 
     // Сохранить результат спина (обновляем spinsLeft из ответа сервера)
     setSpinResult: (result) => set((state) => ({

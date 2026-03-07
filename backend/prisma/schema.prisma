@@ -1,5 +1,4 @@
 // Prisma schema для барабанной рулетки
-// Две модели: User (пользователи Telegram) и SpinResult (история спинов)
 
 generator client {
   provider      = "prisma-client-js"
@@ -23,9 +22,11 @@ model User {
   referredByCode        String?      @map("referred_by_code")
   referralSpinsAwarded  Int          @default(0) @map("referral_spins_awarded")
   channelBonusClaimed   Boolean      @default(false) @map("channel_bonus_claimed")
+  source                String?      @map("source")
   createdAt             DateTime     @default(now()) @map("created_at")
   updatedAt             DateTime     @updatedAt @map("updated_at")
   spinResults    SpinResult[]
+  trackingEvents TrackingEvent[]
 
   @@map("users")
 }
@@ -40,4 +41,66 @@ model SpinResult {
   user       User     @relation(fields: [userId], references: [id])
 
   @@map("spin_results")
+}
+
+// Трекинговые ссылки (UTM-аналог)
+model TrackingLink {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique         // "instagram", "tiktok", etc.
+  name      String                   // "Instagram Stories"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("tracking_links")
+}
+
+// Отдельные события конверсии (pay_click и т.д.)
+model TrackingEvent {
+  id         Int      @id @default(autoincrement())
+  telegramId String?  @map("telegram_id")
+  source     String                   // слаг источника
+  event      String                   // "pay_click", "scenario_complete"
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User?    @relation(fields: [telegramId], references: [telegramId])
+
+  @@index([source])
+  @@index([event])
+  @@map("tracking_events")
+}
+
+// Промокоды
+model PromoCode {
+  id                Int               @id @default(autoincrement())
+  code              String            @unique
+  description       String?
+  spinsGranted      Int               @default(1)  @map("spins_granted")
+  guaranteedPrizeId String?           @map("guaranteed_prize_id") // "coupon" | "extra_spin_1" | "telegram_bear" | null
+  maxActivations    Int?              @map("max_activations")     // null = unlimited
+  activationsCount  Int               @default(0)  @map("activations_count")
+  isActive          Boolean           @default(true) @map("is_active")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  activations       PromoActivation[]
+
+  @@map("promo_codes")
+}
+
+model PromoActivation {
+  id            Int       @id @default(autoincrement())
+  promoCodeId   Int       @map("promo_code_id")
+  telegramId    String    @map("telegram_id")
+  guaranteeUsed Boolean   @default(false) @map("guarantee_used")
+  activatedAt   DateTime  @default(now()) @map("activated_at")
+  promoCode     PromoCode @relation(fields: [promoCodeId], references: [id])
+
+  @@unique([promoCodeId, telegramId])
+  @@map("promo_activations")
+}
+
+// Настройки бота (key-value)
+model BotConfig {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("bot_config")
 }
