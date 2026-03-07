@@ -40,7 +40,7 @@ function App() {
     const hasScrolled = React.useRef(false);
     const referralClaimed = React.useRef(false);
 
-    // Обработка реферального кода при первом открытии.
+    // Обработка реферального кода И трекингового источника при первом открытии.
     // Telegram НЕ передаёт start_param через initDataUnsafe когда Mini App открыт
     // через кнопку web_app — поэтому бот передаёт код в URL как ?ref=XXXX.
     React.useEffect(() => {
@@ -58,12 +58,24 @@ function App() {
         const startParam: string | undefined = tg?.initDataUnsafe?.start_param;
         const refFromStartParam = startParam?.startsWith('ref_') ? startParam.slice(4) : undefined;
 
+        // Обработка реферального кода
         const refCode = refFromUrl || refFromStartParam;
         if (refCode) {
             referralClaimed.current = true;
             claimReferralCode(currentInitData, refCode).catch(() => { });
         }
+
+        // Обработка трекингового источника при открытии через ?startapp=src_slug
+        // startParam имеет вид "src_medinskij_4500_efm4"
+        if (startParam?.startsWith('src_')) {
+            fetch('/api/user/set-source', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData: currentInitData, source: startParam }),
+            }).catch(() => { }); // fire-and-forget, не блокируем UI
+        }
     }, [isReady, initData]);
+
 
     // Авто-скролл к призам при первом заходе
     React.useEffect(() => {

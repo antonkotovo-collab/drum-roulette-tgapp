@@ -261,4 +261,40 @@ router.post('/channel-bonus', telegramAuth, async (req: AuthenticatedRequest, re
     }
 });
 
+/**
+ * POST /api/user/set-source
+ * Записывает источник трекинга (source) при прямом открытии Mini App по ?startapp=src_slug.
+ * Вызывается фронтендом если в initDataUnsafe.start_param передан src_ параметр.
+ * НЕ перезаписывает source если он уже установлен через бота (чтобы бот имел приоритет).
+ */
+router.post('/set-source', telegramAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const telegramId = String(req.telegramUser!.id);
+        const { source } = req.body as { source?: string };
+
+        if (!source || !source.startsWith('src_')) {
+            res.status(400).json({ error: 'Invalid source format (must start with src_)' });
+            return;
+        }
+
+        // Только если source ещё не установлен (не перезаписываем источник из бота)
+        const user = await prisma.user.findUnique({
+            where: { telegramId },
+            select: { source: true },
+        });
+
+        if (user && !user.source) {
+            await prisma.user.update({
+                where: { telegramId },
+                data: { source },
+            });
+        }
+
+        res.json({ ok: true, source: user?.source || source });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 export default router;
+
